@@ -1,5 +1,7 @@
-source('C:\\Users\\Pili\\Documents\\WorkSpace\\acousticwebapp\\martinexamples\\Filled.legend.R')
-source('C:\\Users\\Pili\\Documents\\WorkSpace\\acousticwebapp\\martinexamples\\Filled.contour3.R')
+
+
+source('Filled.legend.R')
+source('Filled.contour3.R')
 
 sub2ind <- function(sub,dim){
   if(length(dim)==3) ind <- (sub[3]-1)*dim[1]*dim[2] + (sub[2]-1)*(dim[1]) + sub[1]

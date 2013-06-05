@@ -1,9 +1,10 @@
 ## Script for plotting detection coverage
 ## 17.05.2013
 rm(list=ls())
-workspace = 'C:\\Users\\Pili\\Documents\\WorkSpace\\acousticwebapp\\martinexamples\\'
-source(paste(workspace , 'simfuns.R'))
-source(paste(workspace , 'basicfuns.R'))
+print(getwd())
+workspace = ''
+source('simfuns.R')
+source('basicfuns.R')
 
 ## --- Receivers ---
 r <- list()
