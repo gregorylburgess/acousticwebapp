@@ -9,10 +9,6 @@ source('Bathy.R')
 source('FishModel.R')
 source('Utility.R')
 
-params = {}
-result = run(params)
-print(result)
-
 	run <- function(params){
 		## Create/Load the Bathy Grid for the area of interest
 		BGrid = bathy(params)
@@ -24,7 +20,7 @@ print(result)
 		sensors = sensors(params, BGrid, FGrid)
 		
 		## Stat analysis of proposed setup.
-		statDict = stats(params, BGrid, FGrid)
+		statDict = stats(params, BGrid, FGrid, sensors)
 		
 		## Return Fish Grid, Bathy Grid, and Sensor Placements as a Dictionary.
 		results = list("BGrid" = BGrid, "FGrid" = FGrid, "Sensors" = sensors, 
@@ -32,3 +28,8 @@ print(result)
 
 		return(results)
 	}
+
+# Test execution.
+params = {}
+result = run(params)
+print(result)
