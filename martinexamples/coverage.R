@@ -1,8 +1,6 @@
 ## Script for plotting detection coverage
 ## 17.05.2013
 rm(list=ls())
-print(getwd())
-workspace = ''
 source('simfuns.R')
 source('basicfuns.R')
 
