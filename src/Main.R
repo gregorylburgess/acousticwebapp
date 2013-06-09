@@ -11,7 +11,11 @@ source('Utility.R')
 
 	run <- function(params){
 		## Create/Load the Bathy Grid for the area of interest
-		BGrid = bathy(params)
+		BGrid = bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
+				startX = 9000, startY = 8000, 
+				XDist = 5, YDist = 5,
+				seriesName = 'z',
+				debug = TRUE)
 		
 		## Create Fish Grid
 		FGrid = fish(params)
