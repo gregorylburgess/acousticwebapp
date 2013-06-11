@@ -5,6 +5,7 @@
 #				placement and stats.
 #		3. User provides area of interest, fish behaviors, and number of sensors, 
 #				asks for optimal placement and stats.
+rm(list=ls()) ## Clear all variables
 source('Bathy.R')
 source('FishModel.R')
 source('Utility.R')
@@ -18,7 +19,7 @@ source('Utility.R')
 				debug = TRUE)
 		
 		## Create Fish Grid
-		FGrid = fish(params)
+		FGrid = fish(params, BGrid)
 		
 		## Find good sensor placements
 		sensors = sensors(params, BGrid, FGrid)
