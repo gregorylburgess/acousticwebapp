@@ -6,13 +6,15 @@
 #		3. User provides area of interest, fish behaviors, and number of sensors, 
 #				asks for optimal placement and stats.
 rm(list=ls()) ## Clear all variables
-source('Bathy.R')
-source('FishModel.R')
-source('Utility.R')
+source('src/Bathy.R')
+source('src/FishModel.R')
+source('src/Utility.R')
 
 	run <- function(params){
+		numSensors = 2
+		range = 1
 		## Create/Load the Bathy Grid for the area of interest
-		BGrid = bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
+		BGrid = bathy(inputFile = "src/himbsyn.bathytopo.v19.grd\\bathy.grd",
 				startX = 9000, startY = 8000, 
 				XDist = 5, YDist = 5,
 				seriesName = 'z',
@@ -22,7 +24,7 @@ source('Utility.R')
 		FGrid = fish(params, BGrid)
 		
 		## Find good sensor placements
-		sensors = sensors(params, BGrid, FGrid)
+		sensors = sensors(numSensors, BGrid, FGrid, range)
 		
 		## Stat analysis of proposed setup.
 		statDict = stats(params, BGrid, FGrid, sensors)
