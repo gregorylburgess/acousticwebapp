@@ -1,13 +1,13 @@
 # Provides utility functions.
 
-source("shapefunctions.R")
+source("ShapeFunctions.R")
 
 # Finds a "good" set of sensor placements for a given setup [bGrid, fGrid, params].
 # Returns a list of locations as grid coordinates.
 sensors <- function(numSensors, bGrid, fGrid, range, bias, debug=FALSE) {
     #TODO create a function to mesh the bGrid and fGrid
-    grid = bGrid
-    #TODO create a function to mesh the bGrid and fGrid
+    grid = bGrid$bGrid
+    
     sensorList = {}
     rows = dim(bGrid)[1]
     cols = dim(bGrid)[2]
@@ -21,6 +21,8 @@ sensors <- function(numSensors, bGrid, fGrid, range, bias, debug=FALSE) {
         
         # find the max location 
         maxLoc = which.min(sumGrid)
+        #TODO actually convert to rows and cols, 
+        #not just search for the value of the cell
         maxLoc = c(r = row(sumGrid)[maxLoc], c = col(sumGrid)[maxLoc]) 
         
         # append maxLoc to the sensor list.
@@ -46,7 +48,7 @@ sumGrid<- function (grid, range, debug=FALSE) {
         }
     }
     if(debug){
-        write("TempGrid", stderr())
+        write("tempGrid", stderr())
         print(tempGrid)
         write("grid",stderr())
         print(grid)
@@ -108,7 +110,18 @@ detect <- function(bGrid, sensorPos, tagPos, fcn, params) {
     }
     
     dist = sqrt((sensorPos["c"] - tagPos["c"])^2 + (sensorPos["r"] - tagPos["r"])^2)
-    return(do.call(fcn, list(dist, params)))
+    probOfRangeDetection = do.call(fcn, list(dist, params))
+    probOfLOSDetection = checkLOS(bGrid, sensorPos, tagPos, params)
+    return(probOfRangeDetection * probOfLOSDetection)
+}
+
+# Returns the percent of the water column visible at a target cell from a
+# starting cell.
+checkLOS<- function(bGrid, startingCell, targetCell, params) {
+    sensorHeight = params["sensorHeight"]
+    grid = bGrid["grid"]
+    initialHeight = grid[startingCell["c"], startingCell["r"]]
+    
 }
 
 

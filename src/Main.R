@@ -14,6 +14,10 @@ source('Utility.R')
 run <- function(params){
     numSensors = 2
     range = 1
+    # holds the number of new cells that a single bathymetric cell should
+    # be split into.  Setting cellRatio to 10 signifies that one bathymetric cell
+    # will be split into a ten by ten grid.
+    cellRatio = 1
     bias = .5
     ## Create/Load the Bathy grid for the area of interest
     bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
@@ -21,6 +25,8 @@ run <- function(params){
             XDist = 5, YDist = 5,
             seriesName = 'z',
             debug = TRUE)
+    bGrid = list("bGrid"=bGrid, "cellRatio"=cellRatio)
+    
     ## Create Fish grid
     fGrid = fish(params, bGrid)
     
@@ -41,7 +47,7 @@ run <- function(params){
 # Test execution.
 params = {}
 result = run(params)
-##print(result)
+#print(result)
 
 ## Plotting
 graphics.off()

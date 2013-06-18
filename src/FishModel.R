@@ -7,10 +7,10 @@ fish <- function(params, bGrid) {
         params$fishmodel <- 'rw'
         print('OU model not implemented, using RW instead.')
     }
-    rows <- dim(bGrid)[1]
-    cols <- dim(bGrid)[2]
-    land <- bGrid>=0
-    water <- bGrid<0
+    rows <- dim(bGrid$bGrid)[1]
+    cols <- dim(bGrid$bGrid)[2]
+    land <- bGrid$bGrid>=0
+    water <- bGrid$bGrid<0
     nowater <- sum(water)
     fGrid <- matrix(0,rows,cols)
     switch(params$fishmodel,
