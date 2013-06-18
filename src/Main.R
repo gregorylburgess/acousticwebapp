@@ -13,19 +13,20 @@ source('Utility.R')
 	run <- function(params){
 		numSensors = 2
 		range = 1
+		bias = .5
 		## Create/Load the Bathy Grid for the area of interest
-		BGrid <- bathy(inputFile = "src/himbsyn.bathytopo.v19.grd\\bathy.grd",
+		BGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
 				startX = 9000, startY = 8000, 
 				XDist = 5, YDist = 5,
 				seriesName = 'z',
 				debug = TRUE)
-
 		## Create Fish Grid
 		FGrid = fish(params, BGrid)
 		
 		## Find good sensor placements
-		sensors = sensors(numSensors, BGrid, FGrid, range)
+		sensors = sensors(numSensors, BGrid, FGrid, range, bias)
 		
+
 		## Stat analysis of proposed setup.
 		statDict = stats(params, BGrid, FGrid, sensors)
 		

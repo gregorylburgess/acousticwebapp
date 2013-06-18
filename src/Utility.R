@@ -1,16 +1,18 @@
-# Provides utility functions for the program.
+# Provides utility functions.
+
+source("shapefunctions.R")
 
 	# Finds a "good" set of sensor placements for a given setup [BGrid, FGrid, params].
 	# Returns a list of locations as grid coordinates.
-	sensors <- function(numSensors, BGrid, FGrid, range, debug=FALSE) {
+	sensors <- function(numSensors, BGrid, FGrid, range, bias, debug=FALSE) {
 		#TODO create a function to mesh the BGrid and FGrid
 		Grid = BGrid
 		#TODO create a function to mesh the BGrid and FGrid
 		sensorList = {}
 		rows = dim(BGrid)[1]
 		cols = dim(BGrid)[2]
-		#Grid = rep(0,rows*cols)
-		#dim(Grid) = c(rows,cols)
+		
+		mergeGrid(BGrid, FGrid, bias)
 		
 		# for each sensor, find a good placement
 		for (i in 1:numSensors) {
@@ -88,14 +90,36 @@
 	
 	
 	# Determines the likelihood of a tag at a given position is detectable by a sensor at a 
-	# given position, using a specific shape fcn.
+	# given position, using a specific shape fcn.  This function considers Bathymetry and
+	# sensor range.
 	# Returns the percent chance of detection as a double between 0 [no chance of detection] 
 	# and 1 [guaranteed detection].
-	detect <- function(sensorPos, tagPos, fcn) {
-		probDetected = 0
-		return(probDetected)
+	detect <- function(BGrid, sensorPos, tagPos, fcn, params) {
+		# Check for proper parameter lengths
+		if (fcn == "shape.sigmoidal") {
+			if (! length(params) == 3) {
+				write("Insufficient Parameters", stderr())
+			}
+		}
+		else {
+			if (! length(params) == 2) {
+				write("Insufficient Parameters", stderr())
+			}
+		}
+		
+		dist = sqrt((sensorPos["c"] - tagPos["c"])^2 + (sensorPos["r"] - tagPos["r"])^2)
+		return(do.call(fcn, list(dist, params)))
 	}
 	
+	
+	# Merges the BGrid and FGrid into a single Grid measuring the "goodness" of a location 
+	# in terms of sensor placement.
+	mergeGrid<- function(BGrid, FGrid, bias) {
+		BGridBias = bias
+		FGridBias = 1-bias
+		Grid = {}
+		return (Grid)
+	}
 	
 	# Provides Statistical data on detection, given a particular BGrid, FGrid, and sensor 
 	# arrangement.
@@ -104,3 +128,6 @@
 		statDict = {}
 		return(statDict)
 	}
+
+
+detect({}, c(c=1,r=3), c(c=2,r=5), "shape.t", c(1,.75))
