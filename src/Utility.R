@@ -119,9 +119,35 @@ detect <- function(bGrid, sensorPos, tagPos, fcn, params) {
 # starting cell.
 checkLOS<- function(bGrid, startingCell, targetCell, params) {
     sensorHeight = params["sensorHeight"]
-    grid = bGrid["grid"]
-    initialHeight = grid[startingCell["c"], startingCell["r"]]
+    initialHeight = bGrid[startingCell$c, startingCell$r]
+    m = (startingCell$r-targetCell$r)/(startingCell$c-targetCell$c)
+    # assume the sensor is in the middle of the cell
+    b = startingCell$r + .5
+    lowerX = min(startingCell$c, targetCell$c)
+    upperX = max(startingCell$c, targetCell$c)
     
+    tx = {}
+    ty= {}
+    for( x in lowerX:upperX) {
+        y= m * (x) + b
+        y1= floor(y)
+        print(c("x=",x))
+        print(c("y=",y))
+        
+        if(y == y1) {
+            print(c(x,y))
+            tx = c(tx,x)
+            ty= c(ty,y1)
+        }
+        else {
+            print(c(x,y1))
+            print(c((x+1),y1))
+            tx=c(tx,x,x+1)
+            ty =c(ty,y1,y1)
+        }
+    }
+    grid = data.frame("x"=tx,"y"=ty)
+    print(unique(grid))
 }
 
 
