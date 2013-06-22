@@ -109,7 +109,7 @@ detect <- function(bGrid, sensorPos, tagPos, fcn, params) {
         }
     }
     
-    dist = sqrt((sensorPos["c"] - tagPos["c"])^2 + (sensorPos["r"] - tagPos["r"])^2)
+    dist = sqrt((sensorPos$c - tagPos$c)^2 + (sensorPos$r - tagPos$r)^2)
     probOfRangeDetection = do.call(fcn, list(dist, params))
     probOfLOSDetection = checkLOS(bGrid, sensorPos, tagPos, params)
     return(probOfRangeDetection * probOfLOSDetection)
@@ -117,40 +117,104 @@ detect <- function(bGrid, sensorPos, tagPos, fcn, params) {
 
 # Returns the percent of the water column visible at a target cell from a
 # starting cell.
-checkLOS<- function(bGrid, startingCell, targetCell, params) {
+checkLOS<- function(bGrid, startingCell, targetCell, params, debug=FALSE) {
     sensorHeight = params["sensorHeight"]
-    initialHeight = bGrid[startingCell$c, startingCell$r]
-    m = (startingCell$r-targetCell$r)/(startingCell$c-targetCell$c)
+    initialHeight = bGrid[sC$c, sC$r]
+    cells = getCels(startingCell, targetCell)
+    
+}
+
+# Returns the cells crossed by a beam from the starting cell to
+# the target cell.
+getCells<-function(startingCell,targetCell) {
+    sC=offset(startingCell)
+    tC=offset(targetCell)
+    m = (sC$r-tC$r)/(sC$c-tC$c)
     # assume the sensor is in the middle of the cell
-    b = startingCell$r + .5
+    b = sC$r-m*sC$c
     lowerX = min(startingCell$c, targetCell$c)
     upperX = max(startingCell$c, targetCell$c)
-    
+    lowerY = min(startingCell$r, targetCell$r)
+    upperY = max(startingCell$r, targetCell$r)
+    print(c("y=",m,"x+",b))
     tx = {}
     ty= {}
-    for( x in lowerX:upperX) {
-        y= m * (x) + b
-        y1= floor(y)
-        print(c("x=",x))
-        print(c("y=",y))
-        
-        if(y == y1) {
-            print(c(x,y))
-            tx = c(tx,x)
-            ty= c(ty,y1)
+    
+    #STEEP SLOPES
+    if(abs(m)>1) {
+        startY = lowerY
+        endY = upperY
+        if(m<0){
+            temp = startY
+            startY = endY
+            endY = temp
         }
-        else {
-            print(c(x,y1))
-            print(c((x+1),y1))
-            tx=c(tx,x,x+1)
-            ty =c(ty,y1,y1)
+        for( y in startY:endY) {
+            x = (y-b)/m
+            x1= ceiling(x)
+            #print(c("x=",x))
+            #print(c("y=",y))
+
+            #print(c(x1,y))
+            #print(c((x1),y+1))
+            tx=c(tx,x1)
+            ty =c(ty,y)
+            if(y+1<=upperY) {
+                tx=c(tx,x1)
+                ty=c(ty,y+1)
+            }
+        }
+    } else {
+        #SLOW SLOPES
+        startX = lowerX
+        endX = upperX
+        if(m<0){
+            temp = lowerX
+            lowerX = upperX
+            upperX = temp
+        }
+        for( x in startX:endX) {
+            y= m * (x) + b
+            y1= ceiling(y)
+            #print(c("x=",x))
+            #print(c("y=",y))
+            
+            if(y == y1) {
+                print(c(x,y))
+                tx = c(tx,x)
+                ty= c(ty,y1)
+            } else {
+                #print(c(x,y1))
+                #print(c((x+1),y1))
+                tx=c(tx,x)
+                ty =c(ty,y1)
+                if(x+1<=upperX) {
+                    tx=c(tx,x+1)
+                    ty=c(ty,y1)
+                }
+            }
         }
     }
     grid = data.frame("x"=tx,"y"=ty)
-    print(unique(grid))
+    grid = unique(grid)
+    return(grid)
 }
 
-
+offset<- function(point){
+    r= point$r
+    c=point$c
+    if(r>0) {
+        r=r-.5
+    } else {
+        r=r+.5
+    }
+    if(c>0){
+        c=c-.5
+    } else {
+        c=c+.5
+    }
+    return(list("r"=r,"c"=c))
+}
 # Merges the bGrid and fGrid into a single grid measuring the "goodness" of a location 
 # in terms of sensor placement.
 mergeGrid<- function(bGrid, fGrid, bias) {
@@ -169,4 +233,4 @@ stats <- function(params, bGrid, fGrid, sensors) {
 }
 
 
-detect({}, c(c=1,r=3), c(c=2,r=5), "shape.t", c(1,.75))
+detect({}, list(c=1,r=5), list(c=3,r=1), "shape.t", c(1,.75))

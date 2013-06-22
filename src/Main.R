@@ -26,7 +26,7 @@ run <- function(params){
             seriesName = 'z',
             debug = TRUE)
     
-    checkLOS(bGrid, list("c"=1,"r"=2), list("c"=5,"r"=4),{})
+    #checkLOS(bGrid, list("c"=1,"r"=2), list("c"=5,"r"=4),{})
     
     bGrid = list("bGrid"=bGrid, "cellRatio"=cellRatio)
     
