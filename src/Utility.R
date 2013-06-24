@@ -1,18 +1,18 @@
 # Provides utility functions.
 
 source("ShapeFunctions.R")
-
+source('Bathy.R')
 # Finds a "good" set of sensor placements for a given setup [bGrid, fGrid, params].
 # Returns a list of locations as grid coordinates.
 sensors <- function(numSensors, bGrid, fGrid, range, bias, debug=FALSE) {
     #TODO create a function to mesh the bGrid and fGrid
-    grid = bGrid$bGrid
+    bGrid = bGrid$bGrid
     
     sensorList = {}
     rows = dim(bGrid)[1]
     cols = dim(bGrid)[2]
     
-    mergeGrid(bGrid, fGrid, bias)
+    grid = mergeGrid(bGrid, fGrid, bias)
     
     # for each sensor, find a good placement
     for (i in 1:numSensors) {
@@ -21,8 +21,7 @@ sensors <- function(numSensors, bGrid, fGrid, range, bias, debug=FALSE) {
         
         # find the max location 
         maxLoc = which.min(sumGrid)
-        #TODO actually convert to rows and cols, 
-        #not just search for the value of the cell
+        #TODO actually convert to rows and cols, not just search for the value of the cell
         maxLoc = c(r = row(sumGrid)[maxLoc], c = col(sumGrid)[maxLoc]) 
         
         # append maxLoc to the sensor list.
@@ -96,7 +95,7 @@ getArea<-function(loc, dim, range) {
 # sensor range.
 # Returns the percent chance of detection as a double between 0 [no chance of detection] 
 # and 1 [guaranteed detection].
-detect <- function(bGrid, sensorPos, tagPos, fcn, params) {
+detect <- function(bGrid, sensorPos, tagPos, fcn, params, debug=FALSE) {
     # Check for proper parameter lengths
     if (fcn == "shape.sigmoidal") {
         if (! length(params) == 3) {
@@ -111,22 +110,59 @@ detect <- function(bGrid, sensorPos, tagPos, fcn, params) {
     
     dist = sqrt((sensorPos$c - tagPos$c)^2 + (sensorPos$r - tagPos$r)^2)
     probOfRangeDetection = do.call(fcn, list(dist, params))
-    probOfLOSDetection = checkLOS(bGrid, sensorPos, tagPos, params)
+    
+    probOfLOSDetection = checkLOS(bGrid, sensorPos, tagPos, params, debug)
+    probOfDetection = probOfRangeDetection * probOfLOSDetection
+    if(debug) {
+        print("[detect]")
+        print(sprintf("probOfLOSDetection=%g",probOfLOSDetection))
+        print(sprintf("probOfRangeDetection=%g",probOfRangeDetection))
+        print(sprintf("TotalProbOfDetection=%g",probOfDetection))
+    }
     return(probOfRangeDetection * probOfLOSDetection)
 }
+
 
 # Returns the percent of the water column visible at a target cell from a
 # starting cell.
 checkLOS<- function(bGrid, startingCell, targetCell, params, debug=FALSE) {
-    sensorHeight = params["sensorHeight"]
-    initialHeight = bGrid[sC$c, sC$r]
-    cells = getCels(startingCell, targetCell)
-    
+    sensorElevation = params["sensorElevation"]
+    sensorElevation = 1
+    dist = sqrt((startingCell$c - targetCell$c)^2 + (startingCell$r - targetCell$r)^2)
+    # our sensor's z value
+    sensorDepth = bGrid[startingCell$r, startingCell$c] + sensorElevation
+    # retrieve list of intervening cells
+    table = getCells(startingCell, targetCell, debug)
+    # annotate each cell's z value from the bGrid
+    table$z <-apply(table, 1, function(rows){ table$z = bGrid[rows[2],rows[1]]})
+    # annotate each cell's percieved slope form our sensor to the cell
+    table$m <-apply(table, 1, function(row) { 
+                table$m = (row[3] - sensorDepth) / sqrt((row[1] - startingCell$c)^2 + (row[2] - startingCell$r)^2)
+            })
+    # take the max of all slopes as the limit on our LoS
+    m = max(table$m)
+    b = sensorDepth
+    # y = mx + b
+    targetCellsVisibleDepth = m*dist + b
+    # compute % visibility (of water column height) from sensor to target cell
+    percentVisibility = targetCellsVisibleDepth / bGrid[targetCell$r,targetCell$c]
+    percentVisibility = min(1, percentVisibility)
+    percentVisibility = max(0, percentVisibility)
+    if(debug){
+        print("[checkLOS]")
+        print(sprintf("sensorDepth=%g",sensorDepth))
+        print("Table:")
+        print(table)
+        print(sprintf("dist/z: y=%gx+%g", m,b))
+        print(sprintf("targetCellsVisibleDepth=%g", targetCellsVisibleDepth))
+        print(sprintf("percentVisibility=%g",percentVisibility))
+    }
+    return(percentVisibility)
 }
 
 # Returns the cells crossed by a beam from the starting cell to
 # the target cell.
-getCells<-function(startingCell,targetCell) {
+getCells<-function(startingCell,targetCell, debug=FALSE) {
     sC=offset(startingCell)
     tC=offset(targetCell)
     m = (sC$r-tC$r)/(sC$c-tC$c)
@@ -136,7 +172,6 @@ getCells<-function(startingCell,targetCell) {
     upperX = max(startingCell$c, targetCell$c)
     lowerY = min(startingCell$r, targetCell$r)
     upperY = max(startingCell$r, targetCell$r)
-    print(c("y=",m,"x+",b))
     tx = {}
     ty= {}
     
@@ -152,11 +187,6 @@ getCells<-function(startingCell,targetCell) {
         for( y in startY:endY) {
             x = (y-b)/m
             x1= ceiling(x)
-            #print(c("x=",x))
-            #print(c("y=",y))
-
-            #print(c(x1,y))
-            #print(c((x1),y+1))
             tx=c(tx,x1)
             ty =c(ty,y)
             if(y+1<=upperY) {
@@ -176,16 +206,12 @@ getCells<-function(startingCell,targetCell) {
         for( x in startX:endX) {
             y= m * (x) + b
             y1= ceiling(y)
-            #print(c("x=",x))
-            #print(c("y=",y))
             
             if(y == y1) {
                 print(c(x,y))
                 tx = c(tx,x)
                 ty= c(ty,y1)
             } else {
-                #print(c(x,y1))
-                #print(c((x+1),y1))
                 tx=c(tx,x)
                 ty =c(ty,y1)
                 if(x+1<=upperX) {
@@ -195,8 +221,18 @@ getCells<-function(startingCell,targetCell) {
             }
         }
     }
+    start = list('x'=startingCell$c,'y'=startingCell$r)
+    end = list('x'=targetCell$c,'y'=targetCell$r)
     grid = data.frame("x"=tx,"y"=ty)
+    # uniques
     grid = unique(grid)
+    # remove start and end cells
+    grid = grid[!(grid$x == startingCell$c & grid$y == startingCell$r),]
+    grid = grid[!(grid$x == targetCell$c & grid$y == targetCell$r),]
+    if(debug) {
+        print("[getCells]")
+        print(sprintf("x/y: y = %gx + %g",m,b))
+    }
     return(grid)
 }
 
@@ -233,4 +269,17 @@ stats <- function(params, bGrid, fGrid, sensors) {
 }
 
 
-detect({}, list(c=1,r=5), list(c=3,r=1), "shape.t", c(1,.75))
+    bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
+        startX = 8700, startY = 8000, 
+        XDist = 5, YDist = 5,
+        seriesName = 'z',
+        debug = TRUE)
+
+
+for( i in 1:5){
+    for (j in 1:5) {
+        bGrid[i,j] = -1
+    }
+}
+print(bGrid)
+detect(bGrid, list(c=1,r=5), list(c=3,r=1), "shape.t", c(1,.75), debug=TRUE)
