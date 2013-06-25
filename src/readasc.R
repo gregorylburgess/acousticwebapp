@@ -1,5 +1,7 @@
-## Script to convert from asc format to R
-## 15.11.2012
+## Script for converting from asc format to R
+## An asc file containing bathymetry data from Palmyra is located in this zip file: ftp://ftp.soest.hawaii.edu/pibhmc/website/data/pria/bathymetry/Pal_IKONOS.zip
+## Place the .asc file in the data folder
+## 07.06.2013
 rm(list=ls())
 filename <- '../data/pal_dbmb.asc'
 
