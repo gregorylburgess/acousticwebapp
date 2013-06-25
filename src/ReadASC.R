@@ -26,12 +26,12 @@ bath <- bath[nrows:1,]
 bath <- t(bath)
 
 ## From meta data file
-##Spatial_Domain: 
-##    Bounding_Coordinates:
-##      West_Bounding_Coordinate: -162.177002
-##      East_Bounding_Coordinate: -161.995141
-##      North_Bounding_Coordinate: 5.903546
-##      South_Bounding_Coordinate: 5.855663
+##Spatial_Domain:
+## Bounding_Coordinates:
+## West_Bounding_Coordinate: -162.177002
+## East_Bounding_Coordinate: -161.995141
+## North_Bounding_Coordinate: 5.903546
+## South_Bounding_Coordinate: 5.855663
 lat <- seq(5.855663,5.903546,length=nrows)
 lon <- seq(-162.177002, -161.995141,length=ncols)
 
