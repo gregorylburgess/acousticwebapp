@@ -70,7 +70,7 @@ sumGrid<- function (grid, range, bias, params, debug=FALSE) {
     }
     #Combo
     else if (bias ==3) {
-        return(sumGrid.sumProduct(grid, range, debug))
+        return(sumGrid.sumProduct(grid, range, params$fcn, params, debug))
     }
     else {
         write("ERROR: Invalid Bias", stderr())
@@ -107,14 +107,14 @@ sumGrid.sumSimple <- function (grid, key, range, debug=FALSE) {
 sumGrid.sumBathy <- function (grid, range, fcn="shape.t", 
         params, debug=FALSE) {
     
-    sumGrid = grid$bGrid$bGrid
+    sumGrid0 = grid$bGrid$bGrid
     tempCpy = grid$bGrid$bGrid
-    rows = dim(sumGrid)[1]
-    cols = dim(sumGrid)[2]
+    rows = dim(sumGrid0)[1]
+    cols = dim(sumGrid0)[2]
     
     for (i in 1:rows) {
         for(j in 1:cols) {
-            vals = getArea(list(r=i,c=j), dim(sumGrid), range)
+            vals = getArea(list(r=i,c=j), dim(sumGrid0), range)
             rs = vals$rs
             re = vals$re
             cs = vals$cs
@@ -128,11 +128,11 @@ sumGrid.sumBathy <- function (grid, range, fcn="shape.t",
                             params, debug))
                 }
             }
-            sumGrid[i,j] = sum(visibilities)
+            sumGrid0[i,j] = sum(visibilities)
         }
     }
     
-    grid$sumGrid = sumGrid
+    grid$sumGrid = sumGrid0
     if(debug){
         cat("\n[sumGrid.sumBathy]\n")
         print("visibilities")
@@ -145,38 +145,44 @@ sumGrid.sumBathy <- function (grid, range, fcn="shape.t",
 
 # For each cell in a given grid, the function sums (the number of fish
 # times the probability of detection) for all cells within range
-sumGrid.sumProductGrid <- function (grid, range, fcn="shape.t", 
+sumGrid.sumProduct <- function (grids, range, fcn="shape.t", 
         params, debug=FALSE) {
     
-    rows = dim(grid$fGrid)[1]
-    cols = dim(grid$fGrid)[2]
-    tempGrid = grid$bGrid
+    sumGrid0 = grids$bGrid$bGrid
+    fGrid = grids$fGrid
+    tempCpy = grids$bGrid$bGrid
+    rows = dim(sumGrid0)[1]
+    cols = dim(sumGrid0)[2]
+    
     for (i in 1:rows) {
         for(j in 1:cols) {
-            vals = getArea(c(r=i,c=j), dim(grid$bGrid), range)
+            vals = getArea(list(r=i,c=j), dim(sumGrid0), range)
             rs = vals$rs
             re = vals$re
             cs = vals$cs
             ce = vals$ce
-            sum = 0
+            visibilities = {}
             for (r in rs:re) {
                 for (c in cs:ce) {
-                    sum = sum + detect(grid, sensorPos=list(r=i,c=j), 
-                                        tagPos=list(r=r,c=c), fcn=fcn, 
-                                        params, debug
-                                      ) * fGrid[r,c]
+                    visibilities = c(
+                            visibilities,
+                            detect(tempCpy, sensorPos=list(r=i,c=j), tagPos=list(r=r,c=c), fcn=fcn,
+                                    params, debug) * fGrid[r,c])
                 }
             }
-            tempGrid[i,j] = sum
+            sumGrid0[i,j] = sum(visibilities)
         }
     }
-    grid$sumGrid = tempGrid
+    
+    grids$sumGrid = sumGrid0
     if(debug){
         cat("\n[sumGrid.sumProduct]\n")
+        print("visibilities")
+        print(visibilities)
         print("grids")
-        print(grid)
+        print(grids)
     }
-    return(grid)
+    return(grids)
 }
 
 # Ingests a grid, and sets the cells between RStart and REnd, 
@@ -198,7 +204,7 @@ zeroOut<-function(grids, loc, range, value, debug=FALSE) {
     maxj = vals$ce
     for (i in mini:maxi) {
         for (j in minj:maxj) {
-            bGrid[i, j] = -999999
+            bGrid[i, j] = NA
             fGrid[i, j] = value
         }
     }

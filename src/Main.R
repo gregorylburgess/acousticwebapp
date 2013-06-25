@@ -22,7 +22,7 @@ run <- function(params, debug=FALSE){
     # be split into.  Setting cellRatio to 10 signifies that one bathymetric cell
     # will be split into a ten by ten grid.
     cellRatio = 1
-    bias = 2
+    bias = 3
     ## Create/Load the Bathy grid for the area of interest
     bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
             startX = 9000, startY = 8000, 
