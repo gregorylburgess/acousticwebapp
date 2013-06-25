@@ -4,8 +4,8 @@
 ## Todo: Possibly add Gompertz, linear, and other functions
 
 shape.t <- function(dist,par){
-    sd <- par[1]
-    peak <- par[2]
+    sd <- par$sd
+    peak <- par$peak
     ## Shape based on t-distribution
     return(peak*dt(dist/sd,df=1)/dt(0,df=1))
 }

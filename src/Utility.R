@@ -1,82 +1,217 @@
 # Provides utility functions.
 
 source("ShapeFunctions.R")
-source('Bathy.R')
+
 # Finds a "good" set of sensor placements for a given setup [bGrid, fGrid, params].
 # Returns a list of locations as grid coordinates.
-sensors <- function(numSensors, bGrid, fGrid, range, bias, debug=FALSE) {
-    #TODO create a function to mesh the bGrid and fGrid
-    bGrid = bGrid$bGrid
+# Bias cases:
+# 1. fish only
+# 2. bathy only
+# 3. detectable fish due to bathy
+sensors <- function(numSensors, bGrid, fGrid, range, bias, params, debug=FALSE) {
+    if (debug) {
+        cat("\n[sensors]\n")
+        print("bGrid")
+        print(bGrid)
+        print("fGrid")
+        print(fGrid)
+        print(sprintf("bias=%g",bias))
+        print("params")
+        print(params)
+    }
     
     sensorList = {}
-    rows = dim(bGrid)[1]
-    cols = dim(bGrid)[2]
-    
-    grid = mergeGrid(bGrid, fGrid, bias)
+    rows = dim(fGrid)[1]
+    cols = dim(fGrid)[2]
+    grids = list("bGrid" = bGrid, "fGrid"=fGrid)
     
     # for each sensor, find a good placement
     for (i in 1:numSensors) {
         # calculate the sumGrid
-        sumGrid = sumGrid(grid, range, debug)
-        
+        grids = sumGrid(grids, range, bias, params, debug)
+        #cat("\n\n[[INITIAL GRIDS]]\n\n")
+        print(grids)
         # find the max location 
-        maxLoc = which.min(sumGrid)
-        #TODO actually convert to rows and cols, not just search for the value of the cell
-        maxLoc = c(r = row(sumGrid)[maxLoc], c = col(sumGrid)[maxLoc]) 
-        
+        sumGrid = grids$sumGrid
+        maxLoc = which.max(sumGrid)
+        maxLoc = list(r=ceiling(maxLoc/rows), c=maxLoc %% cols)
+        print(maxLoc)
         # append maxLoc to the sensor list.
         sensorList = c(sensorList, list(maxLoc))
-        
         #zero out all the values within range of the target cell.
-        grid= zeroOut(grid, maxLoc, range, 0)
+        #print(sprintf("zeroing out: (%g,%g)", maxLoc$c, maxLoc$r))
+        grids= zeroOut(grids, maxLoc, range, 0, debug)
+        #cat("\n\n[[ZEROED OUT GRIDS]]\n\n")
+        #print(grids)
     }
     return(sensorList)
 }
 
 
-# For each cell in a given grid, the function sums the values of neighboring
-# cells within a given range.
-sumGrid<- function (grid, range, debug=FALSE) {
-    tempGrid = grid
-    rows = dim(grid)[1]
-    cols = dim(grid)[2]
-    for (i in 1:rows) {
-        for(j in 1:cols) {
-            vals = getArea(c(r=i,c=j), dim(grid), range)
-            tempGrid[i,j] = sum(grid[vals["rs"]:vals["re"], vals["cs"]:vals["ce"]])
-        }
+# Calculates the composite "goodness" grid for a particular bias.
+sumGrid<- function (grid, range, bias, params, debug=FALSE) {
+    if (debug) {
+        cat("\n[sumGrid]\n")
+        print("bGrid")
+        print(grid$bGrid)
+        print("fGrid")
+        print(grid$fGrid)
+        print(sprintf("bias=%g", bias))
+        print("params")
+        print(params)
     }
-    if(debug){
-        write("tempGrid", stderr())
-        print(tempGrid)
-        write("grid",stderr())
-        print(grid)
+    #Fish
+    if (bias == 1) {
+        return(sumGrid.sumSimple(grid, "fGrid", range, debug))
     }
-    return(tempGrid)
+    #Bathy
+    else if (bias == 2) {
+        return(sumGrid.sumBathy(grid, range, params$fcn, params, debug))
+    }
+    #Combo
+    else if (bias ==3) {
+        return(sumGrid.sumProduct(grid, range, debug))
+    }
+    else {
+        write("ERROR: Invalid Bias", stderr())
+    }   
 }
 
+# Simply sums the values within range of a cell for each cell in the given grid.
+sumGrid.sumSimple <- function (grid, key, range, debug=FALSE) {
+    tempGrid = get(key, grid)
+    tempCopy = tempGrid
+    rows = dim(tempGrid)[1]
+    cols = dim(tempGrid)[2]
+    
+    
+    for (i in 1:rows) {
+        for(j in 1:cols) {
+            vals = getArea(list(r=i,c=j), dim(tempGrid), range)
+            tempGrid[i,j] = sum(tempCopy[vals$rs:vals$re, 
+                                         vals$cs:vals$ce])
+        }
+    }
+    
+    grid$sumGrid = tempGrid
+    if(debug){
+        cat("\n[sumGrid.sumSimple]\n")
+        print("grid")
+        print(grid)
+    }
+    return(grid)
+}
+
+# Sums the result of calling the detect() function on each cell within range of 
+# a target cell for each cell in the given grid.
+sumGrid.sumBathy <- function (grid, range, fcn="shape.t", 
+        params, debug=FALSE) {
+    
+    sumGrid = grid$bGrid$bGrid
+    tempCpy = grid$bGrid$bGrid
+    rows = dim(sumGrid)[1]
+    cols = dim(sumGrid)[2]
+    
+    for (i in 1:rows) {
+        for(j in 1:cols) {
+            vals = getArea(list(r=i,c=j), dim(sumGrid), range)
+            rs = vals$rs
+            re = vals$re
+            cs = vals$cs
+            ce = vals$ce
+            visibilities = {}
+            for (r in rs:re) {
+                for (c in cs:ce) {
+                    visibilities = c(
+                            visibilities,
+                            detect(tempCpy, sensorPos=list(r=i,c=j), tagPos=list(r=r,c=c), fcn=fcn,
+                            params, debug))
+                }
+            }
+            sumGrid[i,j] = sum(visibilities)
+        }
+    }
+    
+    grid$sumGrid = sumGrid
+    if(debug){
+        cat("\n[sumGrid.sumBathy]\n")
+        print("visibilities")
+        print(visibilities)
+        print("grid")
+        print(grid)
+    }
+    return(grid)
+}
+
+# For each cell in a given grid, the function sums (the number of fish
+# times the probability of detection) for all cells within range
+sumGrid.sumProductGrid <- function (grid, range, fcn="shape.t", 
+        params, debug=FALSE) {
+    
+    rows = dim(grid$fGrid)[1]
+    cols = dim(grid$fGrid)[2]
+    tempGrid = grid$bGrid
+    for (i in 1:rows) {
+        for(j in 1:cols) {
+            vals = getArea(c(r=i,c=j), dim(grid$bGrid), range)
+            rs = vals$rs
+            re = vals$re
+            cs = vals$cs
+            ce = vals$ce
+            sum = 0
+            for (r in rs:re) {
+                for (c in cs:ce) {
+                    sum = sum + detect(grid, sensorPos=list(r=i,c=j), 
+                                        tagPos=list(r=r,c=c), fcn=fcn, 
+                                        params, debug
+                                      ) * fGrid[r,c]
+                }
+            }
+            tempGrid[i,j] = sum
+        }
+    }
+    grid$sumGrid = tempGrid
+    if(debug){
+        cat("\n[sumGrid.sumProduct]\n")
+        print("grids")
+        print(grid)
+    }
+    return(grid)
+}
 
 # Ingests a grid, and sets the cells between RStart and REnd, 
 # and CStart and CEnd to the provided value.
-zeroOut<-function(grid, loc, range, value) {
-    vals = getArea(loc, dim=dim(grid), range)
-    mini = vals["rs"]
-    maxi = vals["re"]
-    minj = vals["cs"]
-    maxj = vals["ce"]
+zeroOut<-function(grids, loc, range, value, debug=FALSE) {
+    if(debug) {
+        cat("\n[zeroOut]\n")
+        print(sprintf("loc: (%g,%g)",loc$c,loc$r))
+        print("grid")
+        print(grids)
+    }
+    
+    bGrid = grids$bGrid$bGrid
+    fGrid = grids$fGrid
+    vals = getArea(loc, dim=dim(fGrid), range)
+    mini = vals$rs
+    maxi = vals$re
+    minj = vals$cs
+    maxj = vals$ce
     for (i in mini:maxi) {
         for (j in minj:maxj) {
-            grid[i,j] = value
+            bGrid[i, j] = -999999
+            fGrid[i, j] = value
         }
     }
-    return(grid)
+    grids$bGrid$bGrid = bGrid
+    grids$fGrid = fGrid
+    return(grids)
 }
 
 # Defines the "shape" of a sensor's range, returns an set of start/end indexes
 # for rows and columns respectively named : {rs,re,cs,ce}.
 getArea<-function(loc, dim, range) {
-    r = loc["r"] # the row index for our central point
-    c = loc["c"] # the col index for our central point
+    r = loc$r # the row index for our central point
+    c = loc$c # the col index for our central point
     rows = dim[1] # the max number of rows in the grid
     cols = dim[2] # the max number of cols in the grid
     
@@ -85,7 +220,7 @@ getArea<-function(loc, dim, range) {
     re0 = min(rows, r + range)
     cs0 = max(1 ,c - range)
     ce0 = min(cols, c + range)
-    toRet = c(rs=rs0, re=re0, cs=cs0, ce=ce0)
+    toRet = list(rs=rs0, re=re0, cs=cs0, ce=ce0)
     return(toRet)
 }
 
@@ -98,23 +233,22 @@ getArea<-function(loc, dim, range) {
 detect <- function(bGrid, sensorPos, tagPos, fcn, params, debug=FALSE) {
     # Check for proper parameter lengths
     if (fcn == "shape.sigmoidal") {
-        if (! length(params) == 3) {
+        if (length(params) < 3) {
             write("Insufficient Parameters", stderr())
         }
     }
     else {
-        if (! length(params) == 2) {
+        if (length(params)< 2) {
             write("Insufficient Parameters", stderr())
         }
     }
-    
     dist = sqrt((sensorPos$c - tagPos$c)^2 + (sensorPos$r - tagPos$r)^2)
     probOfRangeDetection = do.call(fcn, list(dist, params))
     
     probOfLOSDetection = checkLOS(bGrid, sensorPos, tagPos, params, debug)
     probOfDetection = probOfRangeDetection * probOfLOSDetection
     if(debug) {
-        print("[detect]")
+        cat("\n[detect]\n")
         print(sprintf("probOfLOSDetection=%g",probOfLOSDetection))
         print(sprintf("probOfRangeDetection=%g",probOfRangeDetection))
         print(sprintf("TotalProbOfDetection=%g",probOfDetection))
@@ -129,10 +263,13 @@ checkLOS<- function(bGrid, startingCell, targetCell, params, debug=FALSE) {
     sensorElevation = params["sensorElevation"]
     sensorElevation = 1
     dist = sqrt((startingCell$c - targetCell$c)^2 + (startingCell$r - targetCell$r)^2)
+    if (dist ==0) {
+        return(1)
+    }
     # our sensor's z value
     sensorDepth = bGrid[startingCell$r, startingCell$c] + sensorElevation
     # retrieve list of intervening cells
-    table = getCells(startingCell, targetCell, debug)
+    table = getCells(startingCell, targetCell, debug) ######getCells returns nothing because the cells are adjacent...
     # annotate each cell's z value from the bGrid
     table$z <-apply(table, 1, function(rows){ table$z = bGrid[rows[2],rows[1]]})
     # annotate each cell's percieved slope form our sensor to the cell
@@ -148,12 +285,12 @@ checkLOS<- function(bGrid, startingCell, targetCell, params, debug=FALSE) {
     percentVisibility = targetCellsVisibleDepth / bGrid[targetCell$r,targetCell$c]
     percentVisibility = min(1, percentVisibility)
     percentVisibility = max(0, percentVisibility)
-    if(debug){
-        print("[checkLOS]")
+    if (debug) {
+        cat("\n[checkLOS]\n")
         print(sprintf("sensorDepth=%g",sensorDepth))
+        print(sprintf("dist/z: y=%gx+%g", m,b))
         print("Table:")
         print(table)
-        print(sprintf("dist/z: y=%gx+%g", m,b))
         print(sprintf("targetCellsVisibleDepth=%g", targetCellsVisibleDepth))
         print(sprintf("percentVisibility=%g",percentVisibility))
     }
@@ -162,10 +299,18 @@ checkLOS<- function(bGrid, startingCell, targetCell, params, debug=FALSE) {
 
 # Returns the cells crossed by a beam from the starting cell to
 # the target cell.
-getCells<-function(startingCell,targetCell, debug=FALSE) {
+getCells<-function(startingCell, targetCell, debug=FALSE) {
     sC=offset(startingCell)
     tC=offset(targetCell)
     m = (sC$r-tC$r)/(sC$c-tC$c)
+    if(abs(m)== Inf) {
+        if(m>0) {
+            m = 999999
+        }
+        else {
+            m = -999999
+        }
+    }
     # assume the sensor is in the middle of the cell
     b = sC$r-m*sC$c
     lowerX = min(startingCell$c, targetCell$c)
@@ -174,7 +319,7 @@ getCells<-function(startingCell,targetCell, debug=FALSE) {
     upperY = max(startingCell$r, targetCell$r)
     tx = {}
     ty= {}
-    
+
     #STEEP SLOPES
     if(abs(m)>1) {
         startY = lowerY
@@ -200,17 +345,20 @@ getCells<-function(startingCell,targetCell, debug=FALSE) {
         endX = upperX
         if(m<0){
             temp = lowerX
-            lowerX = upperX
-            upperX = temp
+            startX = upperX
+            endX = temp
         }
         for( x in startX:endX) {
-            y= m * (x) + b
-            y1= ceiling(y)
-            
+            y = m * x + b
+            y1 = ceiling(y)
             if(y == y1) {
-                print(c(x,y))
                 tx = c(tx,x)
-                ty= c(ty,y1)
+                if (m<0) { 
+                    ty= c(ty,y1+1)
+                }
+                else {
+                    ty= c(ty,y1)
+                }
             } else {
                 tx=c(tx,x)
                 ty =c(ty,y1)
@@ -228,14 +376,22 @@ getCells<-function(startingCell,targetCell, debug=FALSE) {
     grid = unique(grid)
     # remove start and end cells
     grid = grid[!(grid$x == startingCell$c & grid$y == startingCell$r),]
-    grid = grid[!(grid$x == targetCell$c & grid$y == targetCell$r),]
+    #grid = grid[!(grid$x == targetCell$c & grid$y == targetCell$r),]
     if(debug) {
-        print("[getCells]")
+        cat("\n[getCells]\n")
         print(sprintf("x/y: y = %gx + %g",m,b))
+        print(sprintf("Starting Cell:(%g,%g)",startingCell$c,startingCell$r))
+        print(sprintf("Target Cell: (%g,%g)",targetCell$c,targetCell$r))
+        print("Table:")
+        print(grid)
     }
     return(grid)
 }
 
+# Offsets a cartesian point towards the center of the gridcell it represents.
+# ex: the cartesian point (3,2) would be converted to (2.5, 1.5), which puts it in the
+# cell located at the third column, second row (aka the cell at (3,2) on a 1-based grid
+# system).
 offset<- function(point){
     r= point$r
     c=point$c
@@ -251,14 +407,6 @@ offset<- function(point){
     }
     return(list("r"=r,"c"=c))
 }
-# Merges the bGrid and fGrid into a single grid measuring the "goodness" of a location 
-# in terms of sensor placement.
-mergeGrid<- function(bGrid, fGrid, bias) {
-    bGridBias = bias
-    fGridBias = 1-bias
-    grid = {}
-    return (grid)
-}
 
 # Provides Statistical data on detection, given a particular bGrid, fGrid, and sensor 
 # arrangement.
@@ -268,18 +416,23 @@ stats <- function(params, bGrid, fGrid, sensors) {
     return(statDict)
 }
 
-
-    bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
-        startX = 8700, startY = 8000, 
-        XDist = 5, YDist = 5,
-        seriesName = 'z',
-        debug = TRUE)
-
-
+#Test
+#source('Bathy.R')
+#bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
+#    startX = 8700, startY = 8000, 
+#    XDist = 5, YDist = 5,
+#    seriesName = 'z',
+#    debug = TRUE)
+"
 for( i in 1:5){
     for (j in 1:5) {
-        bGrid[i,j] = -1
+        bGrid[i,j] = (i-5)*rows +5
     }
 }
-print(bGrid)
-detect(bGrid, list(c=1,r=5), list(c=3,r=1), "shape.t", c(1,.75), debug=TRUE)
+temp= bGrid
+
+fGrid = temp
+bGrid = list(bGrid=bGrid)
+grids = list(fGrid=fGrid, bGrid=bGrid)
+print(zeroOut(grids, list(r=1,c=1), 1, 0, TRUE))"
+#detect(bGrid, list(c=5,r=5), list(c=5,r=4), "shape.t", list(sd=1, peak=.75, fcn= "shape.t"), debug=TRUE)

@@ -11,31 +11,40 @@ source('Bathy.R')
 source('FishModel.R')
 source('Utility.R')
 
-run <- function(params){
+run <- function(params, debug=FALSE){
+    if(debug) {
+        cat("\n[run]\n")
+    }
     numSensors = 2
-    range = 1
+    range = 2
+    parameters = list(sd=1, peak=.75, fcn= "shape.t")
     # holds the number of new cells that a single bathymetric cell should
     # be split into.  Setting cellRatio to 10 signifies that one bathymetric cell
     # will be split into a ten by ten grid.
     cellRatio = 1
-    bias = .5
+    bias = 2
     ## Create/Load the Bathy grid for the area of interest
     bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
             startX = 9000, startY = 8000, 
-            XDist = 5, YDist = 5,
+            XDist = 10, YDist = 10,
             seriesName = 'z',
-            debug = TRUE)
-    
-    #checkLOS(bGrid, list("c"=1,"r"=2), list("c"=5,"r"=4),{})
+            debug)
     
     bGrid = list("bGrid"=bGrid, "cellRatio"=cellRatio)
     
     ## Create Fish grid
     fGrid = fish(params, bGrid)
     
+    ##Test
+    rows = dim(fGrid)[1]
+    cols = dim(fGrid)[2]
+    for (i in 1:rows) {
+        for (j in 1:cols) {
+            fGrid [i,j]= (i-1)*rows + j
+        }
+    }
     ## Find good sensor placements
-    sensors = sensors(numSensors, bGrid, fGrid, range, bias)
-    
+    sensors = sensors(numSensors, bGrid, fGrid, range, bias, parameters, debug)
     
     ## Stat analysis of proposed setup.
     statDict = stats(params, bGrid, fGrid, sensors)
@@ -43,14 +52,13 @@ run <- function(params){
     ## Return Fish grid, Bathy grid, and Sensor Placements as a Dictionary.
     results = list("bGrid" = bGrid, "fGrid" = fGrid, "sensors" = sensors, 
             "stats" = statDict)
-    
     return(results)
 }
 
 # Test execution.
 params = {}
-result = run(params)
-#print(result)
+result = run(params,FALSE)
+print(result)
 
 ## Plotting
 graphics.off()
