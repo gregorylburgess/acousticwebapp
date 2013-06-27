@@ -23,7 +23,7 @@ bathy <- function(inputFile, startX=0, startY=0, XDist, YDist, seriesName, debug
     
     else {
         ## Create test bGrid to use if real data unavailable
-        nx <- 100
+        nx <- 90
         ny <- 100
         x <- seq(-2*pi,2*pi,length=nx)
         X <- matrix(rep(x,ny),ny,nx,byrow=TRUE)
@@ -35,7 +35,7 @@ bathy <- function(inputFile, startX=0, startY=0, XDist, YDist, seriesName, debug
         ##image(x,y,bGrid)
         ##contour(x,y,bGrid,xlab='x',ylab='y',add=TRUE,nlevels=5)
     }
-    
+
     ## return grid
     return(bGrid)
 }

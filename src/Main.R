@@ -23,14 +23,17 @@ run <- function(params, debug=FALSE){
     # will be split into a ten by ten grid.
     cellRatio = 1
     bias = 3
+
     ## Create/Load the Bathy grid for the area of interest
     bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
             startX = 9000, startY = 8000, 
             XDist = 10, YDist = 10,
             seriesName = 'z',
             debug)
-    
     bGrid = list("bGrid"=bGrid, "cellRatio"=cellRatio)
+    ## Specify a standard scale of x and y axes if previously undefined
+    if(!('x' %in% names(bGrid))) bGrid$x <- seq(0,1,length=dim(bGrid$bGrid)[2])
+    if(!('y' %in% names(bGrid))) bGrid$y <- seq(0,1,length=dim(bGrid$bGrid)[1])
     
     ## Create Fish grid
     fGrid = fish(params, bGrid)
@@ -55,17 +58,40 @@ run <- function(params, debug=FALSE){
     return(results)
 }
 
-# Test execution.
-params = {}
+## Test execution.
+params = list()
+## Mean squared displacement of fish (a proxy for movement capacity)
+params$msd <- 0.1
+## Sampling time step
+params$dt <- 1
+## Choose random walk type movement model
+params$fishmodel <- 'rw'
+## Set to TRUE if depth preference should be applied
+if(FALSE){
+    ## Depth preference of fish
+    params$dp <- -5    
+    ## Strength of depth preference as a standard deviation, 95% of the time is spent within plus minus two dpsd
+    params$dpsd <- 2
+}
+## Set to TRUE of Ornstein-Uhlenbeck (OU) movement should be applied
+if(FALSE){
+    ## Choose Ornstein-Uhlenbeck type movement model
+    params$fishmodel <- 'ou'
+    ## OU parameter: center of home range
+    params$mu <- c(0.4,0.2)
+    ## OU: Attraction parameter, determines strength of attraction toward home range center
+    params$B <- 0.1*diag(2)
+}
+
 result = run(params,FALSE)
 print(result)
 
 ## Plotting
 graphics.off()
-image(result$bGrid$bGrid,main='bGrig')
-contour(result$bGrid$bGrid,xlab='x',ylab='y',add=TRUE,nlevels=5)
+image(bGrid$x,bGrid$y,t(result$bGrid$bGrid),main='bGrid')
+contour(bGrid$x,bGrid$y,t(result$bGrid$bGrid),xlab='x',ylab='y',add=TRUE,nlevels=5)
 dev.new()
-image(result$fGrid,main='fGrig')
+image(bGrid$x,bGrid$y,t(result$fGrid),main='fGrid')
 numSensors <- length(result$sensors)
 nx <- dim(result$fGrid)[2]
 ny <- dim(result$fGrid)[1]
