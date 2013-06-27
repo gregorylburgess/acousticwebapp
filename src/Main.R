@@ -62,11 +62,11 @@ print(result)
 
 ## Plotting
 graphics.off()
-image(result$bGrid,main='bGrig')
-contour(result$bGrid,xlab='x',ylab='y',add=TRUE,nlevels=5)
+image(result$bGrid$bGrid,main='bGrig')
+contour(result$bGrid$bGrid,xlab='x',ylab='y',add=TRUE,nlevels=5)
 dev.new()
 image(result$fGrid,main='fGrig')
-numSensors <- length(result$Sensors)
+numSensors <- length(result$sensors)
 nx <- dim(result$fGrid)[2]
 ny <- dim(result$fGrid)[1]
-for(i in 1:numSensors) points(result$Sensors[[i]][2]/nx,result$Sensors[[i]][1]/ny)
+for(i in 1:numSensors) points(result$sensors[[i]]$c/nx,result$sensors[[i]]$r/ny)
