@@ -418,7 +418,25 @@ offset<- function(point){
 # arrangement.
 # Returns a dictionary of staistical values.
 stats <- function(params, bGrid, fGrid, sensors) {
-    statDict = {}
+    statDict <- list()
+    numSensors <- length(sensors)
+    xSens <- rep(0,numSensors)
+    ySens <- rep(0,numSensors)
+    for(i in 1:numSensors){
+        xSens[i] <- bGrid$x[sensors[[i]]$c]
+        ySens[i] <- bGrid$y[sensors[[i]]$r]
+    }
+    distMat <- matrix(0,numSensors,numSensors)
+    for(i in 1:numSensors){
+        distMat[i,] <- sqrt((xSens[i]-xSens)^2 + (ySens[i]-ySens)^2)
+    }
+    ## a is the median of the distances between the receivers
+    a <- median(distMat[upper.tri(distMat)])
+    ## delta is a sparsity measure (see Pedersen & Weng 2013)
+    statDict$delta <- a/(2*params$range) 
+    ## phi is a dimensionless indicator of movement capacity relative to detection range, it can also be viewed as a signal to noise ratio
+    statDict$phi <- params$msd/params$range
+
     return(statDict)
 }
 

@@ -15,9 +15,10 @@ run <- function(params, debug=FALSE){
     if(debug) {
         cat("\n[run]\n")
     }
-    numSensors = 2
-    range = 2
-    parameters = list(sd=1, peak=.75, fcn= "shape.t")
+    numSensors = 2 ## MWP: should be input using params?
+    range = 2 ## MWP: should be input using params? needed to make stats
+    params$range <- range ## If input via params, this line can be deleted
+    parameters = list(sd=1, peak=.75, fcn= "shape.t") ## MWP: should be input using params? needed to make stats
     # holds the number of new cells that a single bathymetric cell should
     # be split into.  Setting cellRatio to 10 signifies that one bathymetric cell
     # will be split into a ten by ten grid.
@@ -58,6 +59,8 @@ run <- function(params, debug=FALSE){
     return(results)
 }
 
+## Print time stamp (to be able to check run time)
+paste('Starting:',Sys.time())
 ## Test execution.
 params = list()
 ## Mean squared displacement of fish (a proxy for movement capacity)
@@ -84,15 +87,16 @@ if(FALSE){
 }
 
 result = run(params,FALSE)
-print(result)
+## Print time stamp (to be able to check run time)
+paste('Finished:',Sys.time())
+
+##print(result)
 
 ## Plotting
 graphics.off()
-image(bGrid$x,bGrid$y,t(result$bGrid$bGrid),main='bGrid')
-contour(bGrid$x,bGrid$y,t(result$bGrid$bGrid),xlab='x',ylab='y',add=TRUE,nlevels=5)
+image(result$bGrid$x,result$bGrid$y,t(result$bGrid$bGrid),main='bGrid')
+contour(result$bGrid$x,result$bGrid$y,t(result$bGrid$bGrid),xlab='x',ylab='y',add=TRUE,nlevels=5)
 dev.new()
-image(bGrid$x,bGrid$y,t(result$fGrid),main='fGrid')
+image(result$bGrid$x,result$bGrid$y,t(result$fGrid),main='fGrid')
 numSensors <- length(result$sensors)
-nx <- dim(result$fGrid)[2]
-ny <- dim(result$fGrid)[1]
-for(i in 1:numSensors) points(result$sensors[[i]]$c/nx,result$sensors[[i]]$r/ny)
+for(i in 1:numSensors) points(result$bGrid$x[result$sensors[[i]]$c],result$bGrid$y[result$sensors[[i]]$r])
