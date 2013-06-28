@@ -437,6 +437,28 @@ stats <- function(params, bGrid, fGrid, sensors) {
     ## phi is a dimensionless indicator of movement capacity relative to detection range, it can also be viewed as a signal to noise ratio
     statDict$phi <- params$msd/params$range
 
+    ## Distance maps (the distance from any grid cell to a receiver)
+    rows <- dim(fGrid)[1]
+    cols <- dim(fGrid)[2]
+    X <- matrix(rep(bGrid$x,rows),rows,cols,byrow=TRUE)
+    Y <- matrix(rep(bGrid$y,cols),rows,cols,byrow=FALSE)
+    dimap <- array(0,dim=c(rows,cols,numSensors))
+    for(i in 1:numSensors) dimap[,,i] <- sqrt( (X-xSens[i])^2 + (Y-ySens[i])^2 ) ## Distance to receiver
+    ##filled.contour(gy,gx,dimap[,,2],color.palette=rainbow,main=c('Distance map'),xlab='x',ylab='y',plot.axes = {axis(1); axis(2); points(r$x,r$y)})
+
+    ## Detection maps
+    demap <- array(0,dim=c(rows,cols,numSensors))
+    for(i in 1:numSensors) demap[,,i] <- do.call(params$fcn, list(dimap[,,i], params))
+    ##filled.contour(gy,gx,demap[,,2],color.palette=rainbow,main=c('Detection map'),xlab='x',ylab='y',plot.axes = {axis(1); axis(2); points(r$x,r$y)})
+
+    ## Coverage map
+    cover <- matrix(1,rows,cols)
+    for(i in 1:numSensors){
+      cover <- cover * (1 - demap[,,i]) ## Probability of no detection
+    }
+    cover <- 1 - cover ## Detection probability at location
+    statDict$acousticCoverage <- cover
+    
     return(statDict)
 }
 

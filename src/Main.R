@@ -57,20 +57,21 @@ for (i in 1:rows) {
 startTime = Sys.time()
 ## Test execution.
 params = list()
+## Array variables
 params$numSensors = 2 
 params$range = 2 
 params$cellRatio = 1
 params$bias = 3
+## Receiver variables
+params$sd=1
+params$peak=.75 
+params$fcn= "shape.t"
 ## Mean squared displacement of fish (a proxy for movement capacity)
 params$msd <- 0.1
 ## Sampling time step
 params$dt <- 1
 ## Choose random walk type movement model
 params$fishmodel <- 'rw'
-params$sd=1
-params$peak=.75 
-params$fcn= "shape.t"
-
 ## Set to TRUE if depth preference should be applied
 if(FALSE){
     ## Depth preference of fish
