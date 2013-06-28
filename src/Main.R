@@ -15,15 +15,7 @@ run <- function(params, debug=FALSE){
     if(debug) {
         cat("\n[run]\n")
     }
-    numSensors = 2 ## MWP: should be input using params?
-    range = 2 ## MWP: should be input using params? needed to make stats
-    params$range <- range ## If input via params, this line can be deleted
-    parameters = list(sd=1, peak=.75, fcn= "shape.t") ## MWP: should be input using params? needed to make stats
-    # holds the number of new cells that a single bathymetric cell should
-    # be split into.  Setting cellRatio to 10 signifies that one bathymetric cell
-    # will be split into a ten by ten grid.
-    cellRatio = 1
-    bias = 3
+    params = checkParams(params)
 
     ## Create/Load the Bathy grid for the area of interest
     bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
@@ -31,7 +23,7 @@ run <- function(params, debug=FALSE){
             XDist = 10, YDist = 10,
             seriesName = 'z',
             debug)
-    bGrid = list("bGrid"=bGrid, "cellRatio"=cellRatio)
+    bGrid = list("bGrid"=bGrid, "cellRatio"=params$cellRatio)
     ## Specify a standard scale of x and y axes if previously undefined
     if(!('x' %in% names(bGrid))) bGrid$x <- seq(0,1,length=dim(bGrid$bGrid)[2])
     if(!('y' %in% names(bGrid))) bGrid$y <- seq(0,1,length=dim(bGrid$bGrid)[1])
@@ -39,16 +31,16 @@ run <- function(params, debug=FALSE){
     ## Create Fish grid
     fGrid = fish(params, bGrid)
     
-    ##Test
-    rows = dim(fGrid)[1]
-    cols = dim(fGrid)[2]
-    for (i in 1:rows) {
-        for (j in 1:cols) {
-            fGrid [i,j]= (i-1)*rows + j
-        }
+##Test
+rows = dim(fGrid)[1]
+cols = dim(fGrid)[2]
+for (i in 1:rows) {
+    for (j in 1:cols) {
+        fGrid [i,j]= (i-1)*rows + j
     }
+}
     ## Find good sensor placements
-    sensors = sensors(numSensors, bGrid, fGrid, range, bias, parameters, debug)
+    sensors = sensors(params$numSensors, bGrid, fGrid, params$range, params$bias, params, debug)
     
     ## Stat analysis of proposed setup.
     statDict = stats(params, bGrid, fGrid, sensors)
@@ -59,16 +51,26 @@ run <- function(params, debug=FALSE){
     return(results)
 }
 
+
+#### TEST RUN
 ## Print time stamp (to be able to check run time)
-paste('Starting:',Sys.time())
+startTime = Sys.time()
 ## Test execution.
 params = list()
+params$numSensors = 2 
+params$range = 2 
+params$cellRatio = 1
+params$bias = 3
 ## Mean squared displacement of fish (a proxy for movement capacity)
 params$msd <- 0.1
 ## Sampling time step
 params$dt <- 1
 ## Choose random walk type movement model
 params$fishmodel <- 'rw'
+params$sd=1
+params$peak=.75 
+params$fcn= "shape.t"
+
 ## Set to TRUE if depth preference should be applied
 if(FALSE){
     ## Depth preference of fish
@@ -88,9 +90,11 @@ if(FALSE){
 
 result = run(params,FALSE)
 ## Print time stamp (to be able to check run time)
-paste('Finished:',Sys.time())
 
-##print(result)
+print(result)
+endTime = Sys.time()
+paste('Starting:', startTime)
+paste('Finished:', endTime)
 
 ## Plotting
 graphics.off()

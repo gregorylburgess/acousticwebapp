@@ -440,6 +440,30 @@ stats <- function(params, bGrid, fGrid, sensors) {
     return(statDict)
 }
 
+checkParams <- function(params) {
+    if(!('numSensors' %in% names(params))) {
+        write("Error: 'numSensors' is required", syserr())
+    }
+    if(!('bias' %in% names(params))) {
+        write("Error: 'bias' value is required.")
+    }
+    if(!('range' %in% names(params))) {
+        params$range = 1
+    }
+    if(!('sd' %in% names(params))) {
+        params$sd = 1
+    }
+    if(!('peak' %in% names(params))) {
+        params$peak = .75
+    }
+    if(!('fcn' %in% names(params))) {
+        params$fcn = "shape.t"
+    }
+    if(!('cellRatio' %in% names(params))) {
+        params$cellRatio = 1
+    }
+    return(params)
+}
 #Test
 #source('Bathy.R')
 #bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
