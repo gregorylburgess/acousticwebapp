@@ -21,30 +21,31 @@ sensors <- function(numSensors, bGrid, fGrid, range, bias, params, debug=FALSE) 
     }
     
     sensorList = {}
-    rows = dim(fGrid)[1]
-    cols = dim(fGrid)[2]
+    dims = dim(fGrid)
+    rows = dims[1]
+    cols = dims[2]
     grids = list("bGrid" = bGrid, "fGrid"=fGrid)
     
+    # calculate the sumGrid
+    grids = sumGrid(grids, range, bias, params, debug)
+    sumGrid = grids$sumGrid
     # for each sensor, find a good placement
     for (i in 1:numSensors) {
-        # calculate the sumGrid
-        grids = sumGrid(grids, range, bias, params, debug)
-        #cat("\n\n[[INITIAL GRIDS]]\n\n")
-        print(grids)
         # find the max location 
-        sumGrid = grids$sumGrid
-        maxLoc = which.max(sumGrid)
-        maxLoc = list(r=ceiling(maxLoc/rows), c=maxLoc %% cols)
-        print(maxLoc)
+        maxLoc = which.max(grids$sumGrid)
+        # Switch the row/col vals since R references Grid coords differently
+        c=ceiling(maxLoc/rows)
+        r=(maxLoc %% rows)
+        if (r==0) {
+            r=rows
+        }
+        maxLoc = list(c=c,r=r)
         # append maxLoc to the sensor list.
         sensorList = c(sensorList, list(maxLoc))
         #zero out all the values within range of the target cell.
-        #print(sprintf("zeroing out: (%g,%g)", maxLoc$c, maxLoc$r))
-        grids= zeroOut(grids, maxLoc, range, 0, debug)
-        #cat("\n\n[[ZEROED OUT GRIDS]]\n\n")
-        #print(grids)
+        grids$sumGrid= zeroOut(grids$sumGrid, dim(fGrid), maxLoc, 2*range, 0, debug)
     }
-    return(sensorList)
+    return(list(sensorList=sensorList, sumGrid=sumGrid))
 }
 
 
@@ -89,7 +90,7 @@ sumGrid.sumSimple <- function (grid, key, range, debug=FALSE) {
         for(j in 1:cols) {
             vals = getArea(list(r=i,c=j), dim(tempGrid), range)
             tempGrid[i,j] = sum(tempCopy[vals$rs:vals$re, 
-                                         vals$cs:vals$ce])
+                            vals$cs:vals$ce])
         }
     }
     
@@ -125,7 +126,7 @@ sumGrid.sumBathy <- function (grid, range, fcn="shape.t",
                     visibilities = c(
                             visibilities,
                             detect(tempCpy, sensorPos=list(r=i,c=j), tagPos=list(r=r,c=c), fcn=fcn,
-                            params, debug))
+                                    params, debug))
                 }
             }
             sumGrid0[i,j] = sum(visibilities)
@@ -187,30 +188,24 @@ sumGrid.sumProduct <- function (grids, range, fcn="shape.t",
 
 # Ingests a grid, and sets the cells between RStart and REnd, 
 # and CStart and CEnd to the provided value.
-zeroOut<-function(grids, loc, range, value, debug=FALSE) {
+zeroOut<-function(grid, dims, loc, range, value, debug=FALSE) {
     if(debug) {
         cat("\n[zeroOut]\n")
         print(sprintf("loc: (%g,%g)",loc$c,loc$r))
         print("grid")
-        print(grids)
+        print(grid)
     }
-    
-    bGrid = grids$bGrid$bGrid
-    fGrid = grids$fGrid
-    vals = getArea(loc, dim=dim(fGrid), range)
+    vals = getArea(loc, dims, range)
     mini = vals$rs
     maxi = vals$re
     minj = vals$cs
     maxj = vals$ce
     for (i in mini:maxi) {
         for (j in minj:maxj) {
-            bGrid[i, j] = NA
-            fGrid[i, j] = value
-        }
+                    grid[i,j]=value
+            }
     }
-    grids$bGrid$bGrid = bGrid
-    grids$fGrid = fGrid
-    return(grids)
+    return(grid)
 }
 
 # Defines the "shape" of a sensor's range, returns an set of start/end indexes
@@ -325,7 +320,7 @@ getCells<-function(startingCell, targetCell, debug=FALSE) {
     upperY = max(startingCell$r, targetCell$r)
     tx = {}
     ty= {}
-
+    
     #STEEP SLOPES
     if(abs(m)>1) {
         startY = lowerY
@@ -436,7 +431,6 @@ stats <- function(params, bGrid, fGrid, sensors) {
     statDict$delta <- a/(2*params$range) 
     ## phi is a dimensionless indicator of movement capacity relative to detection range, it can also be viewed as a signal to noise ratio
     statDict$phi <- params$msd/params$range
-
     ## Distance maps (the distance from any grid cell to a receiver)
     rows <- dim(fGrid)[1]
     cols <- dim(fGrid)[2]
@@ -445,16 +439,16 @@ stats <- function(params, bGrid, fGrid, sensors) {
     dimap <- array(0,dim=c(rows,cols,numSensors))
     for(i in 1:numSensors) dimap[,,i] <- sqrt( (X-xSens[i])^2 + (Y-ySens[i])^2 ) ## Distance to receiver
     ##filled.contour(gy,gx,dimap[,,2],color.palette=rainbow,main=c('Distance map'),xlab='x',ylab='y',plot.axes = {axis(1); axis(2); points(r$x,r$y)})
-
+    
     ## Detection maps
     demap <- array(0,dim=c(rows,cols,numSensors))
     for(i in 1:numSensors) demap[,,i] <- do.call(params$fcn, list(dimap[,,i], params))
     ##filled.contour(gy,gx,demap[,,2],color.palette=rainbow,main=c('Detection map'),xlab='x',ylab='y',plot.axes = {axis(1); axis(2); points(r$x,r$y)})
-
+    
     ## Coverage map
     cover <- matrix(1,rows,cols)
     for(i in 1:numSensors){
-      cover <- cover * (1 - demap[,,i]) ## Probability of no detection
+        cover <- cover * (1 - demap[,,i]) ## Probability of no detection
     }
     cover <- 1 - cover ## Detection probability at location
     statDict$acousticCoverage <- cover
@@ -462,27 +456,44 @@ stats <- function(params, bGrid, fGrid, sensors) {
     return(statDict)
 }
 
+# Provides default parameter values if none are provided.
 checkParams <- function(params) {
-    if(!('numSensors' %in% names(params))) {
-        write("Error: 'numSensors' is required", syserr())
+    names = names(params)
+    if(!('numSensors' %in% names)) {
+        write("Error: 'numSensors' is required", stderr())
     }
-    if(!('bias' %in% names(params))) {
+    if(!('bias' %in% names)) {
         write("Error: 'bias' value is required.")
     }
-    if(!('range' %in% names(params))) {
+    if(!('range' %in% names)) {
         params$range = 1
     }
-    if(!('sd' %in% names(params))) {
+    if(!('sd' %in% names)) {
         params$sd = 1
     }
-    if(!('peak' %in% names(params))) {
+    if(!('peak' %in% names)) {
         params$peak = .75
     }
-    if(!('fcn' %in% names(params))) {
+    if(!('fcn' %in% names)) {
         params$fcn = "shape.t"
     }
-    if(!('cellRatio' %in% names(params))) {
+    if(!('cellRatio' %in% names)) {
         params$cellRatio = 1
+    }
+    if(!('startX' %in% names)) {
+        params$startX = 9000
+    }
+    if(!('startY' %in% names)) {
+        params$startY = 8000
+    }
+    if(!('XDist' %in% names)) {
+        params$startY = 10
+    }
+    if(!('YDist' %in% names)) {
+        params$startY = 10
+    }
+    if(!('seriesName' %in% names)) {
+        params$seriesName = 'z'
     }
     return(params)
 }
@@ -494,15 +505,15 @@ checkParams <- function(params) {
 #    seriesName = 'z',
 #    debug = TRUE)
 "
-for( i in 1:5){
-    for (j in 1:5) {
+        for( i in 1:5){
+        for (j in 1:5) {
         bGrid[i,j] = (i-5)*rows +5
-    }
-}
-temp= bGrid
-
-fGrid = temp
-bGrid = list(bGrid=bGrid)
-grids = list(fGrid=fGrid, bGrid=bGrid)
-print(zeroOut(grids, list(r=1,c=1), 1, 0, TRUE))"
+        }
+        }
+        temp= bGrid
+        
+        fGrid = temp
+        bGrid = list(bGrid=bGrid)
+        grids = list(fGrid=fGrid, bGrid=bGrid)
+        print(zeroOut(grids, list(r=1,c=1), 1, 0, TRUE))"
 #detect(bGrid, list(c=5,r=5), list(c=5,r=4), "shape.t", list(sd=1, peak=.75, fcn= "shape.t"), debug=TRUE)

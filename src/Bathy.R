@@ -23,7 +23,7 @@ bathy <- function(inputFile, startX=0, startY=0, XDist, YDist, seriesName, debug
     
     else {
         ## Create test bGrid to use if real data unavailable
-        nx <- 90
+        nx <- 100
         ny <- 100
         x <- seq(-2*pi,2*pi,length=nx)
         X <- matrix(rep(x,ny),ny,nx,byrow=TRUE)

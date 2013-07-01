@@ -18,11 +18,12 @@ run <- function(params, debug=FALSE){
     params = checkParams(params)
 
     ## Create/Load the Bathy grid for the area of interest
-    bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
-            startX = 9000, startY = 8000, 
-            XDist = 10, YDist = 10,
-            seriesName = 'z',
+    bGrid <- bathy(params$inputFile,
+            params$startX, params$startY, 
+            params$XDist, params$YDist,
+            params$seriesName,
             debug)
+
     bGrid = list("bGrid"=bGrid, "cellRatio"=params$cellRatio)
     ## Specify a standard scale of x and y axes if previously undefined
     if(!('x' %in% names(bGrid))) bGrid$x <- seq(0,1,length=dim(bGrid$bGrid)[2])
@@ -30,23 +31,15 @@ run <- function(params, debug=FALSE){
     
     ## Create Fish grid
     fGrid = fish(params, bGrid)
-    
-##Test
-rows = dim(fGrid)[1]
-cols = dim(fGrid)[2]
-for (i in 1:rows) {
-    for (j in 1:cols) {
-        fGrid [i,j]= (i-1)*rows + j
-    }
-}
+
     ## Find good sensor placements
     sensors = sensors(params$numSensors, bGrid, fGrid, params$range, params$bias, params, debug)
     
     ## Stat analysis of proposed setup.
-    statDict = stats(params, bGrid, fGrid, sensors)
+    statDict = stats(params, bGrid, fGrid, sensors$sensorList)
     
     ## Return Fish grid, Bathy grid, and Sensor Placements as a Dictionary.
-    results = list("bGrid" = bGrid, "fGrid" = fGrid, "sensors" = sensors, 
+    results = list("bGrid" = bGrid, "fGrid" = fGrid, "sumGrid"=sensors$sumGrid, "sensors" = sensors$sensorList, 
             "stats" = statDict)
     return(results)
 }
@@ -61,7 +54,16 @@ params = list()
 params$numSensors = 2 
 params$range = 2 
 params$cellRatio = 1
-params$bias = 3
+params$bias = 2
+
+# BGrid Variables
+params$inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd"
+params$startX = 9000
+params$startY = 8000 
+params$XDist = 10
+params$YDist = 10
+params$seriesName = 'z'
+
 ## Receiver variables
 params$sd=1
 params$peak=.75 
