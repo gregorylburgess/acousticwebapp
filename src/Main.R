@@ -30,6 +30,7 @@ run <- function(params, debug=FALSE){
     if(!('y' %in% names(bGrid))) bGrid$y <- seq(0,1,length=dim(bGrid$bGrid)[1])
     
     ## Create Fish grid
+    params$fishmodel <- 'ou'
     fGrid = fish(params, bGrid)
 
     ## Find good sensor placements
@@ -74,10 +75,17 @@ params$msd <- 0.1
 params$dt <- 1
 ## Choose random walk type movement model
 params$fishmodel <- 'rw'
+## Set to TRUE if vertical habitat range is applied
+if(TRUE){
+    ## Minimum depth
+    params$mindepth <- -0.5
+    ## Maximum depth
+    params$maxdepth <- -100
+}
 ## Set to TRUE if depth preference should be applied
 if(FALSE){
-    ## Depth preference of fish
-    params$dp <- -5    
+    ## Depth preference of fish relative to bottom (in meters off the bottom)
+    params$dp <- 10
     ## Strength of depth preference as a standard deviation, 95% of the time is spent within plus minus two dpsd
     params$dpsd <- 2
 }
