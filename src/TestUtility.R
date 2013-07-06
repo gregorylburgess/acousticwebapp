@@ -1,5 +1,7 @@
 source("Utility.R")
-
+library("data.table")
+# Use a non-square grid to ensure that columns and rows
+# are being correctly referenced
 r=5
 c=2
 bGrid = matrix(c(1,2,3,4,5,6,7,8,9,10), 
@@ -57,19 +59,19 @@ TestUtility.sumGrid <- function () {
 
 }
 
-# Tests the zeroOut function
+# Tests the zeroOut function and the getArea function
 TestUtility.zeroOut <- function () {
     reset()
     dims = dim(fGrid)
     loc = list(r=dims[1], c=dims[2])
     value = 0
+    # zeroing out the grid around the bottom right corner
+    # should result in the bottom two cells being '0'
     solGrid = matrix(c(1,2,3,0,0,6,7,8,0,0),
             nrow=r, 
             ncol=c)
     
-    print("OK")
     fGrid = zeroOut(fGrid, dims, loc, range, value)
-    print("OK")
     if (isTRUE(all.equal(fGrid, solGrid))) {
         print("[zeroOut: %s]: Pass")
     }
@@ -80,10 +82,35 @@ TestUtility.zeroOut <- function () {
         print("result:")
         print(fGrid)
     }
-    
-
 }
 
+TestUtility.getCells <- function() {
+    reset()
+    startCell = list(r=1,c=1)
+    endCell = list(r=5,c=2)
+    cells = (getCells(startCell, endCell))
+    points = list(  list(x=1,y=2),
+                    list(x=1,y=3),
+                    list(x=2,y=3),
+                    list(x=2,y=4),
+                    list(x=2,y=5))
+    if (dim(cells)[1] > 5) {
+        print("[getCells]: FAIL: too many results, duplicates exist!")
+    }
+    for (point in points) {
+        if(dim(subset(cells, x==point$x & y==point$y))[1] != 1) {
+            print(sprintf("[getCells]: FAIL: (%g,%g) missing or duplicate",point$x,point$y))
+        }
+    }
+    print("[getCells: %s]: Pass")
+}
+
+
+TestUtility.detect <- function () {
+    reset()
+    detect(bGrid, sensorPos, tagPos, fcn, params, debug=FALSE)
+}
 TestUtility.sumGrid()
 TestUtility.zeroOut()
-print("Success!")
+TestUtility.getCells()
+print("Success! All tests passed!")

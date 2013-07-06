@@ -282,8 +282,23 @@ checkLOS<- function(bGrid, startingCell, targetCell, params, debug=FALSE) {
     b = sensorDepth
     # y = mx + b
     targetCellsVisibleDepth = m*dist + b
-    # compute % visibility (of water column height) from sensor to target cell
-    percentVisibility = targetCellsVisibleDepth / bGrid[targetCell$r,targetCell$c]
+    percentVisibility = 0
+    
+    # if we have normal distribution data, use it
+    if( "depth_off_bottom" %in% params && "depth_off_bottom_sd" %in% params) {
+        # compute % fish visible from sensor to target cell
+        mean = bGrid[targetCell$r,targetCell$c] + params$depth_off_bottom
+        sd = depth_off_bottom_sd
+        # pnorm gives the percent below the given point, so subtract from 1
+        # to get the percent above the given point
+        percentVisibility = 1 - (pnorm(targetCellsVisibleDepth,mean=mean,sd=sd))
+    }
+    # if we don't have normal distribution data, assume equal distribution
+    else {
+        # compute % visibility (of water column height) from sensor to target cell
+        percentVisibility = targetCellsVisibleDepth / bGrid[targetCell$r,targetCell$c]
+    }
+    
     percentVisibility = min(1, percentVisibility)
     percentVisibility = max(0, percentVisibility)
     if (debug) {

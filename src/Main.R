@@ -46,9 +46,6 @@ run <- function(params, debug=FALSE){
 
 
 #### TEST RUN
-## Print time stamp (to be able to check run time)
-startTime = Sys.time()
-## Test execution.
 params = list()
 ## Array variables
 params$numSensors = 2 
@@ -91,10 +88,11 @@ if(FALSE){
     params$B <- 0.1*diag(2)
 }
 
-result = run(params,FALSE)
 ## Print time stamp (to be able to check run time)
-
+startTime = Sys.time()
+result = run(params,FALSE)
 print(result)
+## Print time stamp (to be able to check run time)
 endTime = Sys.time()
 paste('Starting:', startTime)
 paste('Finished:', endTime)
