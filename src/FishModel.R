@@ -9,9 +9,9 @@ fish <- function(params, bGrid) {
     switch(params$fishmodel,
             rw={ ## Random walk case
                 print('rw')
-                if('dp' %in% names(params)){
-                    print('RW: Using depth preference to calculate fGrid')
-                    fGrid <- dnorm(bGrid$bGrid,params$dp,params$dpsd)
+                if('mindepth' %in% names(params)){
+                    print('RW: Using vertical habitat to calculate fGrid')
+                    fGrid <- bGrid$bGrid < params$mindepth & bGrid$bGrid > params$maxdepth
                 }else{
                     fGrid <- matrix(1,rows,cols)
                 }
@@ -27,9 +27,9 @@ fish <- function(params, bGrid) {
                 hrVals <- dmvnorm(XY,params$mu,hrCov)
                 fGrid <- matrix(hrVals,rows,cols,byrow=FALSE)
                 if('dp' %in% names(params)){
-                    print('OU: Using depth preference to calculate fGrid')
-                    dpGrid <- dnorm(bGrid$bGrid,params$dp,params$dpsd)
-                    fGrid <- fGrid * dpGrid
+                    print('OU: Using vertical habitat to calculate fGrid')
+                    vhGrid <- bGrid$bGrid < params$mindepth & bGrid$bGrid > params$maxdepth
+                    fGrid <- fGrid * vhGrid
                 }
             }
     )
