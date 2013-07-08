@@ -84,6 +84,27 @@ TestUtility.zeroOut <- function () {
     }
 }
 
+TestUtility.supress.scale <- function() {
+    tests = list(
+        list(d=0, min=.25, max=.75, ans=.25),
+        list(d=100, min=.25, max=.75, ans=.75),
+        list(d=25, min=.25, max=.75, ans=.375),
+        list(d=0, min=0, max=1, ans=0),
+        list(d=100, min=0, max=1, ans=1),
+        list(d=25, min=0, max=1, ans=.25)
+    )
+    supressionRange = 100
+    params = {}
+    
+    for( test in tests) {
+        val = supression.scale(test$d, supressionRange, test$min, 
+                        test$max, params)
+        if (val != test$ans) {
+            print(sprintf("Error: [supress.scale] incorect value.  Expected %g, recieved %g",test$ans, val ))
+        }
+    }
+}
+
 TestUtility.getCells <- function() {
     reset()
     startCell = list(r=1,c=1)
@@ -102,7 +123,7 @@ TestUtility.getCells <- function() {
             print(sprintf("[getCells]: FAIL: (%g,%g) missing or duplicate",point$x,point$y))
         }
     }
-    print("[getCells: %s]: Pass")
+    print("[getCells]: Pass")
 }
 
 
@@ -111,6 +132,7 @@ TestUtility.detect <- function () {
     detect(bGrid, sensorPos, tagPos, fcn, params, debug=FALSE)
 }
 TestUtility.sumGrid()
-TestUtility.zeroOut()
+#TestUtility.zeroOut()
 TestUtility.getCells()
+TestUtility.supress.scale()
 print("Success! All tests passed!")

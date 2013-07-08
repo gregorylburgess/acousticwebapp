@@ -29,10 +29,7 @@ run <- function(params, debug=FALSE){
     if(!('x' %in% names(bGrid))) bGrid$x <- seq(0,1,length=dim(bGrid$bGrid)[2])
     if(!('y' %in% names(bGrid))) bGrid$y <- seq(0,1,length=dim(bGrid$bGrid)[1])
     
-    ## Create Fish grid
-    params$fishmodel <- 'ou'
     fGrid = fish(params, bGrid)
-
     ## Find good sensor placements
     sensors = sensors(params$numSensors, bGrid, fGrid, params$range, params$bias, params, debug)
     
@@ -49,23 +46,29 @@ run <- function(params, debug=FALSE){
 #### TEST RUN
 params = list()
 ## Array variables
-params$numSensors = 2 
-params$range = 2 
+params$numSensors = 10 
+params$range = 4 
 params$cellRatio = 1
-params$bias = 2
+params$bias = 3
 
 # BGrid Variables
 params$inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd"
 params$startX = 9000
 params$startY = 8000 
-params$XDist = 10
-params$YDist = 10
+params$XDist = 25
+params$YDist = 25
 params$seriesName = 'z'
 
 ## Receiver variables
 params$sd=1
 params$peak=.75 
-params$fcn= "shape.t"
+params$shapeFcn= "shape.t"
+
+## Supression variables
+params$supressionFcn = "supression.scale"
+params$supressionRange = 4
+params$maxSupressionValue = 1
+params$minSupressionValue = .5
 ## Mean squared displacement of fish (a proxy for movement capacity)
 params$msd <- 0.1
 ## Sampling time step
@@ -75,19 +78,19 @@ params$fishmodel <- 'rw'
 ## Set to TRUE if vertical habitat range is applied
 if(TRUE){
     ## Minimum depth
-    params$mindepth <- -0.5
+    params$mindepth <- -58
     ## Maximum depth
-    params$maxdepth <- -100
+    params$maxdepth <- -60
 }
 ## Set to TRUE if depth preference should be applied
-if(FALSE){
+if(TRUE){
     ## Depth preference of fish relative to bottom (in meters off the bottom)
     params$dp <- 10
     ## Strength of depth preference as a standard deviation, 95% of the time is spent within plus minus two dpsd
     params$dpsd <- 2
 }
 ## Set to TRUE of Ornstein-Uhlenbeck (OU) movement should be applied
-if(FALSE){
+if(TRUE){
     ## Choose Ornstein-Uhlenbeck type movement model
     params$fishmodel <- 'ou'
     ## OU parameter: center of home range
@@ -107,9 +110,11 @@ paste('Finished:', endTime)
 
 ## Plotting
 graphics.off()
-image(result$bGrid$x,result$bGrid$y,t(result$bGrid$bGrid),main='bGrid')
-contour(result$bGrid$x,result$bGrid$y,t(result$bGrid$bGrid),xlab='x',ylab='y',add=TRUE,nlevels=5)
+image(result$bGrid$x,result$bGrid$y,result$bGrid$bGrid,main='bGrid')
+contour(result$bGrid$x,result$bGrid$y,result$bGrid$bGrid,xlab='x',ylab='y',add=TRUE,nlevels=5)
 dev.new()
-image(result$bGrid$x,result$bGrid$y,t(result$fGrid),main='fGrid')
+image(result$bGrid$x,result$bGrid$y,result$fGrid,main='fGrid')
 numSensors <- length(result$sensors)
-for(i in 1:numSensors) points(result$bGrid$x[result$sensors[[i]]$c],result$bGrid$y[result$sensors[[i]]$r])
+for(i in 1:numSensors) points(result$bGrid$x[result$sensors[[i]]$r],result$bGrid$y[result$sensors[[i]]$c])
+dev.new()
+image(1:25, 1:25 ,result$sumGrid,main='sumGrid')

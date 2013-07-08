@@ -42,8 +42,10 @@ sensors <- function(numSensors, bGrid, fGrid, range, bias, params, debug=FALSE) 
         maxLoc = list(c=c,r=r)
         # append maxLoc to the sensor list.
         sensorList = c(sensorList, list(maxLoc))
-        #zero out all the values within range of the target cell.
-        grids$sumGrid= zeroOut(grids$sumGrid, dim(fGrid), maxLoc, 2*range, 0, debug)
+        # down-weigh all near-by cells to discourage them from being chosen by the program
+        grids$sumGrid = supress(grids$sumGrid, dim(fGrid), maxLoc, params$supressionFcn, 
+                                params$supressionRange, params$minSupressionValue, 
+                                params$maxSupressionValue, params, debug)
     }
     return(list(sensorList=sensorList, sumGrid=sumGrid))
 }
@@ -67,11 +69,11 @@ sumGrid<- function (grid, range, bias, params, debug=FALSE) {
     }
     #Bathy
     else if (bias == 2) {
-        return(sumGrid.sumBathy(grid, range, params$fcn, params, debug))
+        return(sumGrid.sumBathy(grid, range, params$shapeFcn, params, debug))
     }
     #Combo
     else if (bias ==3) {
-        return(sumGrid.sumProduct(grid, range, params$fcn, params, debug))
+        return(sumGrid.sumProduct(grid, range, params$shapeFcn, params, debug))
     }
     else {
         write("ERROR: Invalid Bias", stderr())
@@ -105,7 +107,7 @@ sumGrid.sumSimple <- function (grid, key, range, debug=FALSE) {
 
 # Sums the result of calling the detect() function on each cell within range of 
 # a target cell for each cell in the given grid.
-sumGrid.sumBathy <- function (grid, range, fcn="shape.t", 
+sumGrid.sumBathy <- function (grid, range, shapeFcn="shape.t", 
         params, debug=FALSE) {
     
     sumGrid0 = grid$bGrid$bGrid
@@ -125,7 +127,7 @@ sumGrid.sumBathy <- function (grid, range, fcn="shape.t",
                 for (c in cs:ce) {
                     visibilities = c(
                             visibilities,
-                            detect(tempCpy, sensorPos=list(r=i,c=j), tagPos=list(r=r,c=c), fcn=fcn,
+                            detect(tempCpy, sensorPos=list(r=i,c=j), tagPos=list(r=r,c=c), shapeFcn=shapeFcn,
                                     params, debug))
                 }
             }
@@ -146,7 +148,7 @@ sumGrid.sumBathy <- function (grid, range, fcn="shape.t",
 
 # For each cell in a given grid, the function sums (the number of fish
 # times the probability of detection) for all cells within range
-sumGrid.sumProduct <- function (grids, range, fcn="shape.t", 
+sumGrid.sumProduct <- function (grids, range, shapeFcn="shape.t", 
         params, debug=FALSE) {
     
     sumGrid0 = grids$bGrid$bGrid
@@ -167,7 +169,7 @@ sumGrid.sumProduct <- function (grids, range, fcn="shape.t",
                 for (c in cs:ce) {
                     visibilities = c(
                             visibilities,
-                            detect(tempCpy, sensorPos=list(r=i,c=j), tagPos=list(r=r,c=c), fcn=fcn,
+                            detect(tempCpy, sensorPos=list(r=i,c=j), tagPos=list(r=r,c=c), shapeFcn=shapeFcn,
                                     params, debug) * fGrid[r,c])
                 }
             }
@@ -186,31 +188,61 @@ sumGrid.sumProduct <- function (grids, range, fcn="shape.t",
     return(grids)
 }
 
-# Ingests a grid, and sets the cells between RStart and REnd, 
-# and CStart and CEnd to the provided value.
-zeroOut<-function(grid, dims, loc, range, value, debug=FALSE) {
+# Supresses the values of cells around a sensor using various supressionFunctions.
+# minSupression: The minimum value to return
+# maxSupression: The maximum value to return (also the return value for supression.static())
+supress <- function(grid, dims, loc, supressionFcn, supressionRange,
+                    minSupressionValue, maxSupressionValue, params, debug=FALSE) {
     if(debug) {
-        cat("\n[zeroOut]\n")
+        cat("\n[supress]\n")
+        print(sprintf("supressionFcn: %s", supressionFcn))
         print(sprintf("loc: (%g,%g)",loc$c,loc$r))
         print("grid")
         print(grid)
     }
-    vals = getArea(loc, dims, range)
+    vals = getArea(loc, dims, supressionRange)
     mini = vals$rs
     maxi = vals$re
     minj = vals$cs
     maxj = vals$ce
     for (i in mini:maxi) {
         for (j in minj:maxj) {
-                    grid[i,j]=value
+                    dist = sqrt((loc$c - j)^2 + (loc$r - i)^2)
+                    grid[i,j] = grid[i,j] * do.call(supressionFcn, list(dist, supressionRange, 
+                                        minSupressionValue, maxSupressionValue, params, debug))
             }
     }
     return(grid)
 }
 
+# Returns a static value defined by 'maxSupressionValue'
+supression.static <- function (dist, supressionRange, minSupressionValue, 
+                               maxSupressionValue, params, debug=FALSE) {
+    return (maxSupressionValue)
+}
+
+# Returns a dynamic value based on distance from a point.
+# Returned value should be multiplied by the value to be scaled.
+supression.scale <- function (dist, supressionRange, minSupressionValue, 
+        maxSupressionValue, params, debug=FALSE) {
+    
+    sRange = minSupressionValue - maxSupressionValue
+    value = 1 - (sRange * (dist/supressionRange) + maxSupressionValue)
+    value = max(0, value)
+    value = min(1, value)
+    if (debug) {
+        print(sprintf("dist=%g", dist))
+        print(sprintf("supressionRange=%g", supressionRange))
+        print(sprintf("minSupressionValue=%g", minSupressionValue))
+        print(sprintf("maxSupressionValue=%g", maxSupressionValue))
+        print(sprintf("value=%g", value))
+    }
+    return (value)
+}
+
 # Defines the "shape" of a sensor's range, returns an set of start/end indexes
 # for rows and columns respectively named : {rs,re,cs,ce}.
-getArea<-function(loc, dim, range) {
+getArea<-function(loc, dim, range, debug=FALSE) {
     r = loc$r # the row index for our central point
     c = loc$c # the col index for our central point
     rows = dim[1] # the max number of rows in the grid
@@ -227,24 +259,14 @@ getArea<-function(loc, dim, range) {
 
 
 # Determines the likelihood of a tag at a given position is detectable by a sensor at a 
-# given position, using a specific shape fcn.  This function considers Bathymetry and
+# given position, using a specific shapeFunction.  This function considers Bathymetry and
 # sensor range.
 # Returns the percent chance of detection as a double between 0 [no chance of detection] 
 # and 1 [guaranteed detection].
-detect <- function(bGrid, sensorPos, tagPos, fcn, params, debug=FALSE) {
-    # Check for proper parameter lengths
-    if (fcn == "shape.sigmoidal") {
-        if (length(params) < 3) {
-            write("Insufficient Parameters", stderr())
-        }
-    }
-    else {
-        if (length(params)< 2) {
-            write("Insufficient Parameters", stderr())
-        }
-    }
+detect <- function(bGrid, sensorPos, tagPos, shapeFcn, params, debug=FALSE) {
+
     dist = sqrt((sensorPos$c - tagPos$c)^2 + (sensorPos$r - tagPos$r)^2)
-    probOfRangeDetection = do.call(fcn, list(dist, params))
+    probOfRangeDetection = do.call(shapeFcn, list(dist, params))
     
     probOfLOSDetection = checkLOS(bGrid, sensorPos, tagPos, params, debug)
     probOfDetection = probOfRangeDetection * probOfLOSDetection
@@ -457,7 +479,7 @@ stats <- function(params, bGrid, fGrid, sensors) {
     
     ## Detection maps
     demap <- array(0,dim=c(rows,cols,numSensors))
-    for(i in 1:numSensors) demap[,,i] <- do.call(params$fcn, list(dimap[,,i], params))
+    for(i in 1:numSensors) demap[,,i] <- do.call(params$shapeFcn, list(dimap[,,i], params))
     ##filled.contour(gy,gx,demap[,,2],color.palette=rainbow,main=c('Detection map'),xlab='x',ylab='y',plot.axes = {axis(1); axis(2); points(r$x,r$y)})
     
     ## Coverage map
@@ -483,15 +505,21 @@ checkParams <- function(params) {
     if(!('range' %in% names)) {
         params$range = 1
     }
-    if(!('sd' %in% names)) {
-        params$sd = 1
+    # Supression Function Defaults
+    if(!('supressionFcn' %in% names)) {
+        params$supressionFcn = "supression.static"
+        params$supressionRange = 1
+        params$maxSupressionValue = 0
+        params$minSupressionValue = 0
     }
-    if(!('peak' %in% names)) {
-        params$peak = .75
+    
+    # Shape Function Defaults
+    if(!('shapeFcn' %in% names)) {
+        params$shapeFcn= "shape.t"
+        params$sd=1
+        params$peak=.75 
     }
-    if(!('fcn' %in% names)) {
-        params$fcn = "shape.t"
-    }
+    # Bathymetry defaults
     if(!('cellRatio' %in% names)) {
         params$cellRatio = 1
     }
@@ -510,25 +538,20 @@ checkParams <- function(params) {
     if(!('seriesName' %in% names)) {
         params$seriesName = 'z'
     }
+    # Fish Modeling
+    if(!('fishmodel' %in% names)) {
+        params$fishmodel <- 'rw'
+    }
     return(params)
 }
-#Test
-#source('Bathy.R')
-#bGrid <- bathy(inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd",
-#    startX = 8700, startY = 8000, 
-#    XDist = 5, YDist = 5,
-#    seriesName = 'z',
-#    debug = TRUE)
-"
-        for( i in 1:5){
-        for (j in 1:5) {
-        bGrid[i,j] = (i-5)*rows +5
-        }
-        }
-        temp= bGrid
-        
-        fGrid = temp
-        bGrid = list(bGrid=bGrid)
-        grids = list(fGrid=fGrid, bGrid=bGrid)
-        print(zeroOut(grids, list(r=1,c=1), 1, 0, TRUE))"
-#detect(bGrid, list(c=5,r=5), list(c=5,r=4), "shape.t", list(sd=1, peak=.75, fcn= "shape.t"), debug=TRUE)
+
+
+
+dist = 0
+supressionRange = 100
+minSupressionValue = .25
+maxSupressionValue = .75
+params = {}
+print(supression.scale(dist, supressionRange, minSupressionValue, 
+        maxSupressionValue, params))
+

@@ -1,8 +1,8 @@
 # Models Fish Behavior.  Outputs a Fish grid with the same dimensions as the Bathymetry grid,
 # containing the percentage of transmissions sent per cell.
+library(mvtnorm)
 
 fish <- function(params, bGrid) {
-    if(!('fishmodel' %in% names(params))) params$fishmodel <- 'rw' ## Use random walk if not specified
     rows <- dim(bGrid$bGrid)[1]
     cols <- dim(bGrid$bGrid)[2]
     land <- bGrid$bGrid>=0
@@ -15,10 +15,10 @@ fish <- function(params, bGrid) {
                 }else{
                     fGrid <- matrix(1,rows,cols)
                 }
+                
             },
             ou={ ## Ornstein-Uhlenbeck case
                 print('ou')
-                library(mvtnorm)
                 sigma <- params$msd/sqrt(params$dt)
                 hrCov <- 0.5*sigma^2*solve(params$B)
                 X <- matrix(rep(bGrid$x,rows),rows,cols,byrow=TRUE)
