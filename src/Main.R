@@ -53,6 +53,7 @@ params$bias = 3
 
 # BGrid Variables
 params$inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd"
+params$inputFileType = "netcdf"
 params$startX = 9000
 params$startY = 8000 
 params$XDist = 25

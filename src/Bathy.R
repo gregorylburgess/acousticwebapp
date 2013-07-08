@@ -3,24 +3,28 @@
 # Dependency: Have the ncdf module installed.
 
 library(ncdf)
+library(sp)
+library(raster)
+library(rgdal)
 
-bathy <- function(inputFile, startX=0, startY=0, XDist, YDist, seriesName, debug=FALSE) {
+bathy <- function(inputFile, inputFileType, startX=0, startY=0, XDist, YDist, seriesName, debug=FALSE) {
     
     if(file.exists(inputFile)){
-        ## open the netCDF file
-        ncdfObj = open.ncdf(inputFile)
-        
-        ## grab a slice (in grid form)
-        bGrid = get.var.ncdf(ncdfObj, 'z', start=c(startX, startY), 
-                count=c( XDist, YDist))
-        
-        ## debug print
-        if (isTRUE(debug)) {
-            print(ncdfObj)
-            print(bGrid)
-        }
+        switch(inputFileType, 
+            "netcdf" = {
+                ## open the netCDF file
+                ncdfObj = open.ncdf(inputFile)
+                
+                ## grab a slice (in grid form)
+                bGrid = get.var.ncdf(ncdfObj, 'z', start=c(startX, startY), 
+                        count=c( XDist, YDist))
+            },
+            "arcgis" = {
+                #For an arc/grid (albem_s1 is the folder!):
+                bGrid = raster(inputFile)
+            }
+        )
     }
-    
     else {
         ## Create test bGrid to use if real data unavailable
         nx <- 100
