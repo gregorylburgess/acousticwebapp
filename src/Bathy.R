@@ -8,22 +8,23 @@ library(raster)
 library(rgdal)
 
 bathy <- function(inputFile, inputFileType, startX=0, startY=0, XDist, YDist, seriesName, debug=FALSE) {
-    
+
     if(file.exists(inputFile)){
         switch(inputFileType, 
-            "netcdf" = {
+            netcdf={
                 ## open the netCDF file
                 ncdfObj = open.ncdf(inputFile)
                 
                 ## grab a slice (in grid form)
-                bGrid = get.var.ncdf(ncdfObj, 'z', start=c(startX, startY), 
-                        count=c( XDist, YDist))
+                return(get.var.ncdf(ncdfObj, 'z', start=c(startX, startY), 
+                        count=c( XDist, YDist)))
             },
-            "arcgis" = {
-                #For an arc/grid (albem_s1 is the folder!):
-                bGrid = raster(inputFile)
+            arcgis={
+                #For an arc/grid (inputFile is the containing folder!):
+                return(raster(inputFile))
             }
         )
+        
     }
     else {
         ## Create test bGrid to use if real data unavailable
@@ -38,8 +39,6 @@ bathy <- function(inputFile, inputFileType, startX=0, startY=0, XDist, YDist, se
         ## Plot bGrid
         ##image(x,y,bGrid)
         ##contour(x,y,bGrid,xlab='x',ylab='y',add=TRUE,nlevels=5)
+        return(bGrid)
     }
-
-    ## return grid
-    return(bGrid)
 }

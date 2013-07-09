@@ -16,18 +16,19 @@ run <- function(params, debug=FALSE){
         cat("\n[run]\n")
     }
     params = checkParams(params)
-
     ## Create/Load the Bathy grid for the area of interest
-    bGrid <- bathy(params$inputFile,
+    bGrid = bathy(params$inputFile,
+            params$inputFileType,
             params$startX, params$startY, 
             params$XDist, params$YDist,
             params$seriesName,
             debug)
-
     bGrid = list("bGrid"=bGrid, "cellRatio"=params$cellRatio)
     ## Specify a standard scale of x and y axes if previously undefined
-    if(!('x' %in% names(bGrid))) bGrid$x <- seq(0,1,length=dim(bGrid$bGrid)[2])
-    if(!('y' %in% names(bGrid))) bGrid$y <- seq(0,1,length=dim(bGrid$bGrid)[1])
+    dims = dim(bGrid$bGrid)
+    print(dims)
+    if(!('x' %in% names(bGrid))) bGrid$x <- seq(0,1,length=dims[2])
+    if(!('y' %in% names(bGrid))) bGrid$y <- seq(0,1,length=dims[1])
     
     fGrid = fish(params, bGrid)
     ## Find good sensor placements
@@ -56,8 +57,8 @@ params$inputFile = "himbsyn.bathytopo.v19.grd\\bathy.grd"
 params$inputFileType = "netcdf"
 params$startX = 9000
 params$startY = 8000 
-params$XDist = 25
-params$YDist = 25
+params$XDist = 50
+params$YDist = 50
 params$seriesName = 'z'
 
 ## Receiver variables
